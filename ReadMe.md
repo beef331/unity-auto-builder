@@ -1,6 +1,6 @@
-#Unity Auto Build
+# Unity Auto Build
 
-##How To Build
+## How To Build
 
 Install [Nim](https://nim-lang.org/install.html), then run `nimble build` inside the root. 
 Populate the config.json with actual data.
