@@ -31,34 +31,37 @@ if(not fileExists(configPath)):
     quit(fmt"Config File not found at {configPath}")
 
 proc fetchAndSetup(obj : BuildObj)=
+    ##Downloads the archive, extracts it and copies it
     echo "Attempting to download source"
     try:
         webClient.downloadFile(obj.archiveUrl,"temp.tar.gz")
         extract("temp.tar.gz","temp")
+        #Duplicate so we can run the Unity editor in async to build multiple at once
         for x in obj.platforms:
             copyDir("temp",$x)
     except:
         echo "File cannot be found, check your repo, and branch"
 
 proc cleanUp(obj : BuildObj)=
-    for x in obj.platforms:
-        try:
-            removeDir($x)
-        except: discard
+    #Clean up clean up, everyone everywhere
     removeDir("temp")
     removeFile("temp.tar.gz")
 
 proc buildProjects(obj :BuildObj)=
+    ##Build each platform async to build many at once
+    echo fmt"Attempting to build{obj.platforms}"
     try:
         var buildCommands : seq[string]
+        let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit "
         if(obj.platforms.contains(bpWin)):
-            buildCommands.add(fmt"{obj.unityPath} -projectPath '{getCurrentDir()}/bpWin' -batchmode -buildTarget win64 -nographics -buildWindows64Player {getCurrentDir()}/win-build/{obj.name}.exe -quit")
+            buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpWin' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.name}.exe -logFile {getCurrentDir()}/winLog.txt")
         if(obj.platforms.contains(bpLinux)):
-            buildCommands.add(fmt"{obj.unityPath} -projectPath '{getCurrentDir()}/bpLinux' -batchmode -buildTarget linux64 -nographics -buildLinux64Player {getCurrentDir()}/linux-build/{obj.name}.x86_64 -quit")
-        discard execProcesses(buildCommands)
+            buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpLinux' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.name}.x86_64 -logFile {getCurrentDir()}/linuxLog.txt")
+        discard execProcesses(buildCommands,{})
     except: echo "Build Error"
 
 proc parseConfig(path : string) : BuildObj=
+    ##Loads the file into a config
     result = BuildObj()
     let rootNode = parseJson(path.readFile())
 
@@ -75,7 +78,6 @@ proc parseConfig(path : string) : BuildObj=
         if(response.code != Http200):
             quit "Repo not accesible, check token and url."
         let responseJson = response.bodyStream.parseJson()
-        echo responseJson.pretty()
         #Get archiveUrl for downloading tarball/zipball
         result.archiveUrl = responseJson["archive_url"].getStr()
     else: quit "No repo in Json"
@@ -87,7 +89,8 @@ proc parseConfig(path : string) : BuildObj=
     if(rootNode.contains(name)):
         result.name = rootNode[name].getStr()
     else:
-        quit "You need a license file go to X to get one"
+        echo "Name not found using untitled"
+        result.name = "untitled"
 
     if(rootNode.contains(branch)):
         result.branch = rootNode[branch].getStr()
@@ -115,7 +118,7 @@ proc parseConfig(path : string) : BuildObj=
             of "ios", "iphone" : result.platforms = result.platforms + {bpIos}
             of "web", "webgl" : result.platforms = result.platforms + {bpWeb}
     else:
-        quit "No platforms found quitting"
+        quit "No platforms found, quitting"
 
     #Setup Archive URL
     result.archiveUrl = result.archiveUrl.replace("{archive_format}","tarball").replace("{/ref}",fmt"/{result.branch}")
