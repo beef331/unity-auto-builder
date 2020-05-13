@@ -5,7 +5,7 @@ type
     BuildPlatforms {.size: sizeof(cint).} = enum
         bpWin,bpLinux,bpMac,bpAndr,bpWeb,bpIos
     BuildObj = object
-        unityPath, repo, branch, preBuild, postBuild, token, archiveUrl, name : string
+        unityPath, repo, branch, preBuild, postBuild, token, archiveUrl, name, subPath : string
         platforms : set[BuildPlatforms]
         
 
@@ -24,6 +24,7 @@ const
     postBuild = "post-compile-script"
     platforms = "platforms"
     name = "name"
+    subPath = "project-sub-path"
 var
     webClient : HttpClient
 
@@ -33,11 +34,25 @@ if(not fileExists(configPath)):
 proc fetchAndSetup(obj : BuildObj)=
     ##Downloads the archive, extracts it and copies it
     echo "Attempting to download source"
+    var lastBranch = ""
+
+    if(fileExists("lastRun.txt")):
+        var file = open("lastRun.txt",fmRead)
+        lastBranch = file.readAll()
+        file.close()
+    var file = open("lastRun.txt",fmWrite)
+    file.write(obj.branch)
+    file.close()
+
+
     try:
         webClient.downloadFile(obj.archiveUrl,"temp.tar.gz")
         extract("temp.tar.gz","temp")
         #Duplicate so we can run the Unity editor in async to build multiple at once
         for x in obj.platforms:
+            if(obj.branch != lastBranch and dirExists($x)):
+                removeDir($x)
+
             copyDir("temp",$x)
     except:
         echo "File cannot be found, check your repo, and branch"
@@ -51,12 +66,13 @@ proc buildProjects(obj :BuildObj)=
     ##Build each platform async to build many at once
     echo fmt"Attempting to build{obj.platforms}"
     try:
+        echo fmt"{getCurrentDir()}/bpWin{obj.subPath}"
         var buildCommands : seq[string]
         let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit "
         if(obj.platforms.contains(bpWin)):
-            buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpWin' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.name}.exe -logFile {getCurrentDir()}/winLog.txt")
+            buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpWin{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.name}.exe -logFile {getCurrentDir()}/winLog.txt")
         if(obj.platforms.contains(bpLinux)):
-            buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpLinux' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.name}.x86_64 -logFile {getCurrentDir()}/linuxLog.txt")
+            buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpLinux{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.name}.x86_64 -logFile {getCurrentDir()}/linuxLog.txt")
         discard execProcesses(buildCommands,{})
     except: echo "Build Error"
 
@@ -85,6 +101,10 @@ proc parseConfig(path : string) : BuildObj=
     if(rootNode.contains(unityPath)):
         result.unityPath = rootNode[unityPath].getStr()
     else: quit "No Unity path in config"
+
+    if(rootNode.contains(subPath)):
+        result.subPath = rootNode[subPath].getStr()
+    else: echo "No subpath found, assuming root project folder."
 
     if(rootNode.contains(name)):
         result.name = rootNode[name].getStr()

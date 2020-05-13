@@ -1,6 +1,7 @@
 {
     "token" : "TOKEN-HERE",
     "repo" : "URL HERE",
+    "project-sub-path": "/For/When/Not/At/Root",
     "branch" : "master",
     "name" : "cords",
     "unity-path" : "Path/To/Unity/Binary",
