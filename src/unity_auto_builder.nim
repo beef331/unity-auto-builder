@@ -5,7 +5,8 @@ type
     BuildPlatforms {.size: sizeof(cint).} = enum
         bpWin,bpLinux,bpMac,bpAndr,bpWeb,bpIos
     BuildObj = object
-        unityPath, repo, branch, preBuild, postBuild, token, archiveUrl, name, subPath : string
+        unityPath, repo, branch, preBuild, postBuild, token, archiveUrl,
+         name, subPath,lastCommitBuilt : string
         platforms : set[BuildPlatforms]
         
 
@@ -31,17 +32,23 @@ var
 if(not fileExists(configPath)):
     quit(fmt"Config File not found at {configPath}")
 
-proc fetchAndSetup(obj : BuildObj)=
+proc fetchAndSetup(obj : var BuildObj)=
     ##Downloads the archive, extracts it and copies it
     echo "Attempting to download source"
     var lastBranch = ""
 
     if(fileExists("lastRun.txt")):
-        var file = open("lastRun.txt",fmRead)
-        lastBranch = file.readAll()
+        let 
+            file = open("lastRun.txt",fmRead)
+            splitFile = file.readAll.split("\n")
+        if(splitFile.len == 2):
+            lastBranch = splitFile[0]
+            obj.lastCommitBuilt = splitFile[1]
+        
         file.close()
     var file = open("lastRun.txt",fmWrite)
-    file.write(obj.branch)
+    file.writeLine(obj.branch)
+    file.writeLine(obj.lastCommitBuilt)
     file.close()
 
 
@@ -52,7 +59,6 @@ proc fetchAndSetup(obj : BuildObj)=
         for x in obj.platforms:
             if(obj.branch != lastBranch and dirExists($x)):
                 removeDir($x)
-
             copyDir("temp",$x)
     except:
         echo "File cannot be found, check your repo, and branch"
@@ -64,9 +70,10 @@ proc cleanUp(obj : BuildObj)=
 
 proc buildProjects(obj :BuildObj)=
     ##Build each platform async to build many at once
-    echo fmt"Attempting to build{obj.platforms}"
+    echo fmt"Attempting to build {obj.platforms}"
+    if(not obj.preBuild.isEmptyOrWhitespace):
+        discard execShellCmd(obj.preBuild)
     try:
-        echo fmt"{getCurrentDir()}/bpWin{obj.subPath}"
         var buildCommands : seq[string]
         let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit "
         if(obj.platforms.contains(bpWin)):
@@ -74,6 +81,7 @@ proc buildProjects(obj :BuildObj)=
         if(obj.platforms.contains(bpLinux)):
             buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpLinux{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.name}.x86_64 -logFile {getCurrentDir()}/linuxLog.txt")
         discard execProcesses(buildCommands,{})
+        discard execShellCmd(obj.postBuild)
     except: echo "Build Error"
 
 proc parseConfig(path : string) : BuildObj=
@@ -143,7 +151,7 @@ proc parseConfig(path : string) : BuildObj=
     #Setup Archive URL
     result.archiveUrl = result.archiveUrl.replace("{archive_format}","tarball").replace("{/ref}",fmt"/{result.branch}")
 
-let build = parseConfig(configPath)
+var build = parseConfig(configPath)
 cleanUp(build)
 fetchAndSetup(build)
 buildProjects(build)

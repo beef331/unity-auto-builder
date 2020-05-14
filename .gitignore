@@ -1,2 +1,6 @@
 unity_auto_builder
 realconfig.json
+lastRun.txt
+*Log.txt
+*-build/
+bp*/*
