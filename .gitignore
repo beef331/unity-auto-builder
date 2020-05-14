@@ -3,4 +3,6 @@ realconfig.json
 lastRun.txt
 *Log.txt
 *-build/
-bp*/*
+bp*/
+temp/
+temp.tar.gz

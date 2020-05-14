@@ -1,4 +1,4 @@
-import os, osproc, httpclient, json, strformat, strutils, nimarchive
+import os, osproc, httpclient, json, strformat, strutils, nimarchive, times
 
 
 type
@@ -6,7 +6,7 @@ type
         bpWin,bpLinux,bpMac,bpAndr,bpWeb,bpIos
     BuildObj = object
         unityPath, repo, branch, preBuild, postBuild, token, archiveUrl,
-         name, subPath,lastCommitBuilt : string
+         name, subPath,lastCommitBuilt, branchUrl : string
         platforms : set[BuildPlatforms]
         
 
@@ -32,33 +32,38 @@ var
 if(not fileExists(configPath)):
     quit(fmt"Config File not found at {configPath}")
 
-proc fetchAndSetup(obj : var BuildObj)=
-    ##Downloads the archive, extracts it and copies it
-    echo "Attempting to download source"
-    var lastBranch = ""
-
-    if(fileExists("lastRun.txt")):
-        let 
-            file = open("lastRun.txt",fmRead)
-            splitFile = file.readAll.split("\n")
-        if(splitFile.len == 2):
-            lastBranch = splitFile[0]
-            obj.lastCommitBuilt = splitFile[1]
-        
-        file.close()
+proc saveState(obj : BuildObj)=
     var file = open("lastRun.txt",fmWrite)
     file.writeLine(obj.branch)
     file.writeLine(obj.lastCommitBuilt)
     file.close()
 
+proc loadState(obj : var BuildObj)=
+    var lastBranch : string
+    if(fileExists("lastRun.txt")):
+        let 
+            file = open("lastRun.txt",fmRead)
+            splitFile = file.readAll.split("\n")
+        if(splitFile.len >= 2):
+            lastBranch = splitFile[0]
+            obj.lastCommitBuilt = splitFile[1]
+        file.close()
 
+    saveState(obj)
+
+    for x in obj.platforms:
+        if(obj.branch != lastBranch and dirExists($x)):
+            removeDir($x)
+
+
+
+proc fetchAndSetup(obj : BuildObj)=
+    ##Downloads the archive, extracts it and copies it
     try:
         webClient.downloadFile(obj.archiveUrl,"temp.tar.gz")
         extract("temp.tar.gz","temp")
         #Duplicate so we can run the Unity editor in async to build multiple at once
         for x in obj.platforms:
-            if(obj.branch != lastBranch and dirExists($x)):
-                removeDir($x)
             copyDir("temp",$x)
     except:
         echo "File cannot be found, check your repo, and branch"
@@ -70,7 +75,9 @@ proc cleanUp(obj : BuildObj)=
 
 proc buildProjects(obj :BuildObj)=
     ##Build each platform async to build many at once
-    echo fmt"Attempting to build {obj.platforms}"
+    fetchAndSetup(obj)
+    
+    echo fmt"{now()} Attempting to build {obj.platforms}"
     if(not obj.preBuild.isEmptyOrWhitespace):
         discard execShellCmd(obj.preBuild)
     try:
@@ -81,6 +88,7 @@ proc buildProjects(obj :BuildObj)=
         if(obj.platforms.contains(bpLinux)):
             buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpLinux{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.name}.x86_64 -logFile {getCurrentDir()}/linuxLog.txt")
         discard execProcesses(buildCommands,{})
+        echo fmt"{now()} Builds on commit {obj.lastCommitBuilt} done."
         discard execShellCmd(obj.postBuild)
     except: echo "Build Error"
 
@@ -104,6 +112,7 @@ proc parseConfig(path : string) : BuildObj=
         let responseJson = response.bodyStream.parseJson()
         #Get archiveUrl for downloading tarball/zipball
         result.archiveUrl = responseJson["archive_url"].getStr()
+        result.branchUrl = responseJson["branches_url"].getStr()
     else: quit "No repo in Json"
 
     if(rootNode.contains(unityPath)):
@@ -150,9 +159,21 @@ proc parseConfig(path : string) : BuildObj=
 
     #Setup Archive URL
     result.archiveUrl = result.archiveUrl.replace("{archive_format}","tarball").replace("{/ref}",fmt"/{result.branch}")
+    result.branchUrl = result.branchUrl.replace("{/branch}", fmt"/{result.branch}")
 
 var build = parseConfig(configPath)
-cleanUp(build)
-fetchAndSetup(build)
-buildProjects(build)
-cleanUp(build)
+build.loadState()
+echo "Auto builder intialized watching for commit differences"
+
+while true:
+    let res = webClient.request(build.branchUrl)
+    let resJson = res.body.parseJson()
+    let sha = resJson["commit"]["sha"].getStr()
+    if(sha != build.lastCommitBuilt):
+        build.lastCommitBuilt = sha
+        cleanUp(build)
+        buildProjects(build)
+        cleanUp(build)
+        build.saveState
+    sleep(30000)
+
