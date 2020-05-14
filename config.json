@@ -3,7 +3,7 @@
     "repo" : "https://api.github.com/repos/{NAME-HERE}/{REPO-HERE}",
     "project-sub-path": "/For/When/Not/At/Root",
     "branch" : "master",
-    "name" : "cords",
+    "name" : "Project-Name",
     "unity-path" : "Path/To/Unity/Binary",
     "precompile-script" : "/Path/To/Script",
     "post-compile-script" : "/PathTo/Script",
