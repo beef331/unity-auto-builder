@@ -1,19 +1,18 @@
-import os, osproc, httpclient, json, strformat, strutils, nimarchive, times,locks, terminal
-
+import os, osproc, httpclient, json, strformat, strutils, nimarchive, times,
+        locks, terminal
 
 type
     BuildPlatforms {.size: sizeof(cint).} = enum
-        bpWin,bpLinux,bpMac,bpAndr,bpWeb,bpIos
+        bpWin, bpLinux, bpMac, bpAndr, bpWeb, bpIos
     BuildObj = object
         unityPath, repo, branch, preBuild, postBuild, token, archiveUrl,
-         name, subPath,lastCommitBuilt, branchUrl : string
-        platforms : set[BuildPlatforms]
-        
+         name, subPath, lastCommitBuilt, branchUrl: string
+        platforms: set[BuildPlatforms]
 
 if(paramCount() < 1):
     quit "Please supply a path to the config you wish to use"
 
-let 
+let
     configPath = paramStr(1)
 
 const
@@ -27,26 +26,26 @@ const
     name = "name"
     subPath = "project-sub-path"
 var
-    webClient : HttpClient
-    building : bool = false
-    writeThread : Thread[void]
+    webClient: HttpClient
+    building: bool = false
+    writeThread: Thread[void]
     L: Lock
 initLock(L)
 
 if(not fileExists(configPath)):
     quit(fmt"Config File not found at {configPath}")
 
-proc saveState(obj : BuildObj)=
-    var file = open("lastRun.txt",fmWrite)
+proc saveState(obj: BuildObj) =
+    var file = open("lastRun.txt", fmWrite)
     file.writeLine(obj.branch)
     file.writeLine(obj.lastCommitBuilt)
     file.close()
 
-proc loadState(obj : var BuildObj)=
-    var lastBranch : string
+proc loadState(obj: var BuildObj) =
+    var lastBranch: string
     if(fileExists("lastRun.txt")):
-        let 
-            file = open("lastRun.txt",fmRead)
+        let
+            file = open("lastRun.txt", fmRead)
             splitFile = file.readAll.split("\n")
         if(splitFile.len >= 2):
             lastBranch = splitFile[0]
@@ -59,10 +58,9 @@ proc loadState(obj : var BuildObj)=
         if(obj.branch != lastBranch and dirExists($x)):
             removeDir($x)
 
-
-proc buildingWriter(){.thread.}=
-    let 
-        buildChars = ["|","/","-","\\","|","/","-","\\"]
+proc buildingWriter(){.thread.} =
+    let
+        buildChars = ["|", "/", "-", "\\", "|", "/", "-", "\\"]
         startTime = getTime()
     var tick = 0
     while(building):
@@ -71,31 +69,50 @@ proc buildingWriter(){.thread.}=
         acquire L
         eraseLine(stdout)
         echo fmt"Building {buildChars[tick]} Time Elapsed: {delta.seconds}"
-        cursorUp(stdout,1)
+        cursorUp(stdout, 1)
         tick = (tick + 1 + buildChars.len).mod(buildChars.len)
         release L
 
+proc resyncBuildFiles(obj : BuildObj)= 
 
+    let pathName = obj.repo[(obj.repo.rfind('/')+1)..obj.repo.high]
 
-proc fetchAndSetup(obj : BuildObj)=
+    let previousDir = getCurrentDir()
+    setCurrentDir(previousDir & "/" & pathName)
+    discard execShellCmd(fmt"git checkout {obj.repo}")
+    discard execShellCmd(fmt"git pull")
+    setCurrentDir(previousDir)
+
+    for platform in obj.platforms:
+        if(not dirExists($platform)): createDir($platform)
+        for dir in walkDir(pathName):
+            let 
+                absDirPath = fmt"{getCurrentDir()}/{dir.path}"
+                name = dir.path.splitPath().tail
+                absSymPath = fmt"{getCurrentDir()}/{$platform}/{name}"
+            if(fileExists(absSymPath)):
+                removeFile(absSymPath)
+            if(dirExists(absSymPath)):
+                removeDir(absSymPath)
+
+            createSymlink(absDirPath,absSymPath)
+
+proc cloneBuild(obj: BuildObj) =
     ##Downloads the archive, extracts it and copies it
-    try:
-        webClient.downloadFile(obj.archiveUrl,"temp.tar.gz")
-        extract("temp.tar.gz","temp")
-        #Duplicate so we can run the Unity editor in async to build multiple at once
-        for x in obj.platforms:
-            copyDir("temp",$x)
-    except:
-        echo "File cannot be found, check your repo, and branch"
+    let pathName = obj.repo[(obj.repo.rfind('/')+1)..obj.repo.high]
+    if(not dirExists(pathName)):
+        discard execShellCmd(fmt"git clone {obj.repo}")
+        if(not dirExists(pathName)): quit "Repo not accessible or incorrect"
+        resyncBuildFiles(obj)
 
-proc cleanUp(obj : BuildObj)=
+proc cleanUp(obj: BuildObj) =
     #Clean up clean up, everyone everywhere
     removeDir("temp")
     removeFile("temp.tar.gz")
 
-proc buildProjects(obj :BuildObj)=
+proc buildProjects(obj: BuildObj) =
     ##Build each platform async to build many at once
-    fetchAndSetup(obj)
+    cloneBuild(obj)
     var time = now().format("yyyy-MM-dd   HH:mtt")
     echo fmt"{time} Attempting to build {obj.platforms}"
     building = true
@@ -103,18 +120,21 @@ proc buildProjects(obj :BuildObj)=
         discard execShellCmd(obj.preBuild)
     try:
         let startTime = getTime()
-        var buildCommands : seq[string]
+        var buildCommands: seq[string]
         let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit "
         if(obj.platforms.contains(bpWin)):
-            buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpWin{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.name}.exe -logFile {getCurrentDir()}/winLog.txt")
+            buildCommands.add(buildCommand &
+                    fmt"-projectPath '{getCurrentDir()}/bpWin{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.name}.exe -logFile {getCurrentDir()}/winLog.txt")
         if(obj.platforms.contains(bpLinux)):
-            buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpLinux{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.name}.x86_64 -logFile {getCurrentDir()}/linuxLog.txt")
+            buildCommands.add(buildCommand &
+                    fmt"-projectPath '{getCurrentDir()}/bpLinux{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.name}.x86_64 -logFile {getCurrentDir()}/linuxLog.txt")
         if(obj.platforms.contains(bpMac)):
-            buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpMac{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.name}.dmg -logFile {getCurrentDir()}/macLog.txt")
+            buildCommands.add(buildCommand &
+                    fmt"-projectPath '{getCurrentDir()}/bpMac{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.name}.dmg -logFile {getCurrentDir()}/macLog.txt")
 
 
         createThread(writeThread, buildingWriter)
-        discard execProcesses(buildCommands,{})
+        discard execProcesses(buildCommands, {})
         building = false
 
         joinThread(writeThread)
@@ -124,7 +144,7 @@ proc buildProjects(obj :BuildObj)=
         discard execShellCmd(obj.postBuild)
     except: echo "Build Error"
 
-proc parseConfig(path : string) : BuildObj=
+proc parseConfig(path: string): BuildObj =
     ##Loads the file into a config
     result = BuildObj()
     let rootNode = parseJson(path.readFile())
@@ -132,12 +152,14 @@ proc parseConfig(path : string) : BuildObj=
     if(rootNode.contains(token)):
         result.token = rootNode[token].getStr()
         webClient = newHttpClient()
-        webClient.headers = newHttpHeaders({"Authorization" : fmt"token {result.token}" })
+        webClient.headers = newHttpHeaders({
+                "Authorization": fmt"token {result.token}"})
     else:
         echo "No token found, ignore issue if public repo"
 
     if(rootNode.contains(repo)):
         result.repo = rootNode[repo].getStr()
+        #[
         let response = webClient.request(result.repo)
         if(response.code != Http200):
             quit "Repo not accesible, check token and url."
@@ -145,7 +167,9 @@ proc parseConfig(path : string) : BuildObj=
         #Get archiveUrl for downloading tarball/zipball
         result.archiveUrl = responseJson["archive_url"].getStr()
         result.branchUrl = responseJson["branches_url"].getStr()
+        ]#
     else: quit "No repo in Json"
+
 
     if(rootNode.contains(unityPath)):
         result.unityPath = rootNode[unityPath].getStr()
@@ -163,7 +187,7 @@ proc parseConfig(path : string) : BuildObj=
 
     if(rootNode.contains(branch)):
         result.branch = rootNode[branch].getStr()
-    else: 
+    else:
         echo "No branch in json, using master"
         result.branch = "master"
 
@@ -180,28 +204,31 @@ proc parseConfig(path : string) : BuildObj=
     if(rootNode.contains(platforms)):
         for platform in rootNode[platforms]:
             case platform.getStr().toLower():
-            of "windows", "win" : result.platforms = result.platforms + {bpWin}
-            of "linux", "winux", "lin" : result.platforms = result.platforms + {bpLinux}
-            of "mac", "macos" : result.platforms = result.platforms + {bpMac}
-            of "android", "droid", "apk" : result.platforms = result.platforms + {bpAndr}
-            of "ios", "iphone" : result.platforms = result.platforms + {bpIos}
-            of "web", "webgl" : result.platforms = result.platforms + {bpWeb}
+            of "windows", "win": result.platforms = result.platforms + {bpWin}
+            of "linux", "winux", "lin": result.platforms = result.platforms + {bpLinux}
+            of "mac", "macos": result.platforms = result.platforms + {bpMac}
+            of "android", "droid", "apk": result.platforms = result.platforms +
+                    {bpAndr}
+            of "ios", "iphone": result.platforms = result.platforms + {bpIos}
+            of "web", "webgl": result.platforms = result.platforms + {bpWeb}
     else:
         quit "No platforms found, quitting"
 
     #Setup Archive URL
-    result.archiveUrl = result.archiveUrl.replace("{archive_format}","tarball").replace("{/ref}",fmt"/{result.branch}")
-    result.branchUrl = result.branchUrl.replace("{/branch}", fmt"/{result.branch}")
-
+    result.archiveUrl = result.archiveUrl.replace("{archive_format}",
+            "tarball").replace("{/ref}", fmt"/{result.branch}")
+    result.branchUrl = result.branchUrl.replace("{/branch}",
+            fmt"/{result.branch}")
 
 setCurrentDir(configPath.splitPath().head)
 
 var build = parseConfig(configPath)
 build.loadState()
 echo "Auto Builder Initalized"
-
+cloneBuild(build)
 var tick = 0
-let waitingAnim = ["",".","..","...",".. .",". .."," ..."]
+let waitingAnim = ["", ".", "..", "...", ".. .", ". ..", " ..."]
+
 while true:
     let res = webClient.request(build.branchUrl)
     let resJson = res.body.parseJson()
@@ -209,7 +236,7 @@ while true:
     if(sha != build.lastCommitBuilt):
         build.lastCommitBuilt = sha
         cleanUp(build)
-        buildProjects(build)
+        #buildProjects(build)
         cleanUp(build)
         build.saveState
     else:
