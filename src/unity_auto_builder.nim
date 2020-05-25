@@ -1,4 +1,4 @@
-import os, osproc, httpclient, json, strformat, strutils, nimarchive, times
+import os, osproc, httpclient, json, strformat, strutils, nimarchive, times,locks, terminal
 
 
 type
@@ -28,6 +28,10 @@ const
     subPath = "project-sub-path"
 var
     webClient : HttpClient
+    building : bool = false
+    writeThread : Thread[void]
+    L: Lock
+initLock(L)
 
 if(not fileExists(configPath)):
     quit(fmt"Config File not found at {configPath}")
@@ -56,6 +60,22 @@ proc loadState(obj : var BuildObj)=
             removeDir($x)
 
 
+proc buildingWriter(){.thread.}=
+    let 
+        buildChars = ["|","/","-","\\","|","/","-","\\"]
+        startTime = getTime()
+    var tick = 0
+    while(building):
+        sleep(60)
+        let delta = (getTime() - startTime)
+        acquire L
+        eraseLine(stdout)
+        echo fmt"Building {buildChars[tick]} Time Elapsed: {delta.seconds}"
+        cursorUp(stdout,1)
+        tick = (tick + 1 + buildChars.len).mod(buildChars.len)
+        release L
+
+
 
 proc fetchAndSetup(obj : BuildObj)=
     ##Downloads the archive, extracts it and copies it
@@ -76,19 +96,31 @@ proc cleanUp(obj : BuildObj)=
 proc buildProjects(obj :BuildObj)=
     ##Build each platform async to build many at once
     fetchAndSetup(obj)
-    
-    echo fmt"{now()} Attempting to build {obj.platforms}"
+    var time = now().format("yyyy-MM-dd   HH:mtt")
+    echo fmt"{time} Attempting to build {obj.platforms}"
+    building = true
     if(not obj.preBuild.isEmptyOrWhitespace):
         discard execShellCmd(obj.preBuild)
     try:
+        let startTime = getTime()
         var buildCommands : seq[string]
         let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit "
         if(obj.platforms.contains(bpWin)):
             buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpWin{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.name}.exe -logFile {getCurrentDir()}/winLog.txt")
         if(obj.platforms.contains(bpLinux)):
             buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpLinux{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.name}.x86_64 -logFile {getCurrentDir()}/linuxLog.txt")
+        if(obj.platforms.contains(bpMac)):
+            buildCommands.add(buildCommand & fmt"-projectPath '{getCurrentDir()}/bpMac{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.name}.dmg -logFile {getCurrentDir()}/macLog.txt")
+
+
+        createThread(writeThread, buildingWriter)
         discard execProcesses(buildCommands,{})
-        echo fmt"{now()} Builds on commit {obj.lastCommitBuilt} done."
+        building = false
+
+        joinThread(writeThread)
+        let delta = (getTime() - startTime)
+        time = now().format("yyyy-MM-dd   HH:mtt")
+        echo fmt"{time} Builds on commit {obj.lastCommitBuilt} done. It took {delta.seconds} seconds."
         discard execShellCmd(obj.postBuild)
     except: echo "Build Error"
 
@@ -161,10 +193,15 @@ proc parseConfig(path : string) : BuildObj=
     result.archiveUrl = result.archiveUrl.replace("{archive_format}","tarball").replace("{/ref}",fmt"/{result.branch}")
     result.branchUrl = result.branchUrl.replace("{/branch}", fmt"/{result.branch}")
 
+
+setCurrentDir(configPath.splitPath().head)
+
 var build = parseConfig(configPath)
 build.loadState()
-echo "Auto builder intialized watching for commit differences"
+echo "Auto Builder Initalized"
 
+var tick = 0
+let waitingAnim = ["",".","..","...",".. .",". .."," ..."]
 while true:
     let res = webClient.request(build.branchUrl)
     let resJson = res.body.parseJson()
@@ -175,5 +212,12 @@ while true:
         buildProjects(build)
         cleanUp(build)
         build.saveState
-    sleep(30000)
+    else:
+        
+        echo fmt"Watching for commit differences {waitingAnim[tick]}"
+        cursorUp(stdout,1)
+        eraseLine()
+        tick = (tick + 1 + waitingAnim.len).mod(waitingAnim.len)
+
+    sleep(10000)
 
