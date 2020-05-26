@@ -58,19 +58,85 @@ proc loadState(obj: var BuildObj) =
         if(obj.branch != lastBranch and dirExists($x)):
             removeDir($x)
 
-proc buildingWriter(){.thread.} =
-    let
-        buildChars = ["|", "/", "-", "\\", "|", "/", "-", "\\"]
-        startTime = getTime()
+proc buildingMessage(){.thread.} =
+    let startTime = getTime()
     var tick = 0
+    let buildAnim = ["⢀⠀",
+                 "⡀⠀",
+                 "⠄⠀",
+                 "⢂⠀",
+                 "⡂⠀",
+                 "⠅⠀",
+                 "⢃⠀",
+                 "⡃⠀",
+                 "⠍⠀",
+                 "⢋⠀",
+                 "⡋⠀",
+                 "⠍⠁",
+                 "⢋⠁",
+                 "⡋⠁",
+                 "⠍⠉",
+                 "⠋⠉",
+                 "⠋⠉",
+                 "⠉⠙",
+                 "⠉⠙",
+                 "⠉⠩",
+                 "⠈⢙",
+                 "⠈⡙",
+                 "⢈⠩",
+                 "⡀⢙",
+                 "⠄⡙",
+                 "⢂⠩",
+                 "⡂⢘",
+                 "⠅⡘",
+                 "⢃⠨",
+                 "⡃⢐",
+                 "⠍⡐",
+                 "⢋⠠",
+                 "⡋⢀",
+                 "⠍⡁",
+                 "⢋⠁",
+                 "⡋⠁",
+                 "⠍⠉",
+                 "⠋⠉",
+                 "⠋⠉",
+                 "⠉⠙",
+                 "⠉⠙",
+                 "⠉⠩",
+                 "⠈⢙",
+                 "⠈⡙",
+                 "⠈⠩",
+                 "⠀⢙",
+                 "⠀⡙",
+                 "⠀⠩",
+                 "⠀⢘",
+                 "⠀⡘",
+                 "⠀⠨",
+                 "⠀⢐",
+                 "⠀⡐",
+                 "⠀⠠",
+                 "⠀⢀",
+                 "⠀⡀"]
     while(building):
         sleep(60)
         let delta = (getTime() - startTime)
         acquire L
         eraseLine(stdout)
-        echo fmt"Building {buildChars[tick]} Time Elapsed: {delta.seconds}"
+        echo fmt"{buildAnim[tick]} Building. Time Elapsed: {delta.seconds}"
         cursorUp(stdout, 1)
-        tick = (tick + 1 + buildChars.len).mod(buildChars.len)
+        tick = (tick + 1 + buildAnim.len).mod(buildAnim.len)
+        release L
+
+proc commitMessage(){.thread.}=
+    let waitingAnim = ["", ".", "..", "...", ".. .", ". ..", " ..."]
+    var tick = 0
+    while(not building):
+        sleep(120)
+        acquire L
+        eraseLine(stdout)
+        echo fmt"Watching for commits {waitingAnim[tick]}"
+        cursorUp(stdout, 1)
+        tick = (tick + 1 + waitingAnim.len).mod(waitingAnim.len)
         release L
 
 proc resyncBuildFiles(obj : BuildObj)= 
@@ -90,11 +156,7 @@ proc resyncBuildFiles(obj : BuildObj)=
                 absDirPath = fmt"{getCurrentDir()}/{dir.path}"
                 name = dir.path.splitPath().tail
                 absSymPath = fmt"{getCurrentDir()}/{$platform}/{name}"
-            if(fileExists(absSymPath)):
-                removeFile(absSymPath)
-            if(dirExists(absSymPath)):
-                removeDir(absSymPath)
-
+            if(dirExists(absSymPath) or fileExists(absSymPath)): continue
             createSymlink(absDirPath,absSymPath)
 
 proc cloneBuild(obj: BuildObj) =
@@ -112,8 +174,9 @@ proc cleanUp(obj: BuildObj) =
 
 proc buildProjects(obj: BuildObj) =
     ##Build each platform async to build many at once
-    cloneBuild(obj)
-    var time = now().format("yyyy-MM-dd   HH:mtt")
+    obj.resyncBuildFiles()
+
+    var time = now().format("yyyy-MM-dd   HH:mmtt")
     echo fmt"{time} Attempting to build {obj.platforms}"
     building = true
     if(not obj.preBuild.isEmptyOrWhitespace):
@@ -133,14 +196,18 @@ proc buildProjects(obj: BuildObj) =
                     fmt"-projectPath '{getCurrentDir()}/bpMac{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.name}.dmg -logFile {getCurrentDir()}/macLog.txt")
 
 
-        createThread(writeThread, buildingWriter)
+        createThread(writeThread, buildingMessage)
         discard execProcesses(buildCommands, {})
         building = false
 
         joinThread(writeThread)
+        eraseLine(stdout)
         let delta = (getTime() - startTime)
-        time = now().format("yyyy-MM-dd   HH:mtt")
-        echo fmt"{time} Builds on commit {obj.lastCommitBuilt} done. It took {delta.seconds} seconds."
+        time = now().format("yyyy-MM-dd   HH:mmtt")
+        echo &"{time}\nBuilds finished \n" 
+        echo fmt"Commit: {obj.lastCommitBuilt}"
+        echo &"Elapsed Time:{delta.seconds} seconds\n"
+        createThread(writeThread,commitMessage)
         discard execShellCmd(obj.postBuild)
     except: echo "Build Error"
 
@@ -220,31 +287,32 @@ proc parseConfig(path: string): BuildObj =
     result.branchUrl = result.branchUrl.replace("{/branch}",
             fmt"/{result.branch}")
 
+proc getSha(obj : BuildObj):string=
+    let pathName = obj.repo[(obj.repo.rfind('/')+1)..obj.repo.high]
+    let previousDir = getCurrentDir()
+    setCurrentDir(previousDir & "/" & pathName)
+    discard execCmd("git fetch")
+    result = execCmdEx("git show-ref HEAD -s").output.strip()
+    setCurrentDir(previousDir)
+
 setCurrentDir(configPath.splitPath().head)
 
 var build = parseConfig(configPath)
 build.loadState()
+build.cloneBuild()
 echo "Auto Builder Initalized"
-cloneBuild(build)
-var tick = 0
-let waitingAnim = ["", ".", "..", "...", ".. .", ". ..", " ..."]
+
+createThread(writeThread, commitMessage)
 
 while true:
-    let res = webClient.request(build.branchUrl)
-    let resJson = res.body.parseJson()
-    let sha = resJson["commit"]["sha"].getStr()
+    let sha = build.getSha()
     if(sha != build.lastCommitBuilt):
+        building = true
+        joinThread(writeThread)
         build.lastCommitBuilt = sha
         cleanUp(build)
-        #buildProjects(build)
+        buildProjects(build)
         cleanUp(build)
         build.saveState
-    else:
-        
-        echo fmt"Watching for commit differences {waitingAnim[tick]}"
-        cursorUp(stdout,1)
-        eraseLine()
-        tick = (tick + 1 + waitingAnim.len).mod(waitingAnim.len)
 
     sleep(10000)
-
