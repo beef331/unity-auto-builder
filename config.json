@@ -1,6 +1,5 @@
 {
-    "token" : "TOKEN-HERE",
-    "repo" : "https://api.github.com/repos/{NAME-HERE}/{REPO-HERE}",
+    "repo" : "https://github.com/{NAME-HERE}/{REPO-HERE}",
     "project-sub-path": "/For/When/Not/At/Root",
     "branch" : "master",
     "name" : "Project-Name",
