@@ -2,7 +2,7 @@
 
 ## How To Build
 
-Install [Nim](https://nim-lang.org/install.html), then run `nimble build` inside the root.
+Clone the repo. Install [Nim](https://nim-lang.org/install.html), then run `nimble build` inside the root directory of the cloned repo.
 
 Populate the config.json with actual data.
 
