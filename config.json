@@ -11,5 +11,13 @@
         "windows",
         "linux",
         "mac"
-    ]
+    ],
+    "itch": {
+        "name" : "{USERNAME-HERE}",
+        "game-name" : "{GAME-NAME-HERE}"
+    },
+    "github":{
+        "token" : "{TOKEN-HERE}",
+        "repo" : "https://api.github.com/repos/{NAME-HERE}/{REPO-HERE}/releases"
+    }
 }

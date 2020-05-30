@@ -52,12 +52,10 @@ proc parseConfig*(path: string): BuildObj =
     if(rootNode.contains(preBuild)):
         let path = rootNode[preBuild].getStr()
         if(path.fileExists()): result.preBuild = path
-        else: echo "Pre-Build file not found"
 
     if(rootNode.contains(postBuild)):
         let path = rootNode[postBuild].getStr()
         if(path.fileExists()): result.postBuild = path
-        else: echo "Post-Build file not found"
 
     if(rootNode.contains(platforms)):
         for platform in rootNode[platforms]:
