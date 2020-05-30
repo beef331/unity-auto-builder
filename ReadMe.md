@@ -11,6 +11,7 @@ Finally run `./unity_auto_builder /path/to/config.json`
 or if you used nimble install
 `unity_auto_builder /path/to/config.json`
 
+# Pre/Post Scripts
 The itch.io and Github uploaders require to be built with `-d:ssl` and have only been tested on linux.
 
 To build them simply just 
