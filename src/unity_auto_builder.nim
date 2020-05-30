@@ -198,7 +198,7 @@ proc buildProjects(obj: BuildObj) =
         echo fmt"Commit: {obj.lastCommitBuilt}"
         echo &"Elapsed Time:{delta.seconds} seconds\n"
         createThread(writeThread,commitMessage)
-        discard execShellCmd(obj.postBuild & configPath)
+        discard execShellCmd(fmt"{obj.postBuild} {configPath}")
     except: echo "Build Error"
 
 proc getSha(obj : BuildObj):string=
