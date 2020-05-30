@@ -16,6 +16,7 @@ The itch.io and Github uploaders require to be built with `-d:ssl` and have only
 
 To build them simply just 
 `nim -c -d:ssl ./src/itchiouploader.nim`
+
 `nim -c -d:ssl ./src/githubuploader.nim`
 
 To write a custom script in any language simply take the first parameter as the path to the config which is relative to the workdir since the autobuilder moves to that directory.
