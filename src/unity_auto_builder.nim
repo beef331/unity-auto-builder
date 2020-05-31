@@ -13,8 +13,13 @@ import os,
 if(paramCount() < 1):
     quit "Please supply a path to the config you wish to use"
 
-let
-    configPath = paramStr(1)
+proc getConfigPath(a : string): string=
+    if(a.contains(DirSep)): result = a
+    else: result = getCurrentDir() & DirSep & a
+
+
+let configPath : string = getConfigPath(paramStr(1))
+
 
 var
     building: bool = false
