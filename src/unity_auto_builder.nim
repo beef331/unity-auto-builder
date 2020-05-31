@@ -14,7 +14,7 @@ if(paramCount() < 1):
     quit "Please supply a path to the config you wish to use"
 
 proc getConfigPath(a : string): string=
-    if(a.contains(DirSep)): result = a
+    if(a.isAbsolute): result = a
     else: result = getCurrentDir() & DirSep & a
 
 
