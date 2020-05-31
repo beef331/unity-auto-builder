@@ -146,7 +146,7 @@ proc resyncBuildFiles(obj : BuildObj)=
 
     for platform in obj.platforms:
         if(not dirExists($platform)): createDir($platform)
-        for dir in walkDir(pathName):
+        for dir in walkDir(pathName & DirSep & obj.subPath):
             let 
                 absDirPath = fmt"{getCurrentDir()}/{dir.path}"
                 name = dir.path.splitPath().tail
@@ -203,7 +203,8 @@ proc buildProjects(obj: BuildObj) =
         echo fmt"Commit: {obj.lastCommitBuilt}"
         echo &"Elapsed Time:{delta.seconds} seconds\n"
         createThread(writeThread,commitMessage)
-        discard execShellCmd(fmt"{obj.postBuild} {configPath}")
+        if(fileExists(obj.postBuild)):
+            discard execShellCmd(fmt"{obj.postBuild} {configPath}")
     except: echo "Build Error"
 
 proc getSha(obj : BuildObj):string=
