@@ -11,7 +11,8 @@ if(not jsonData.contains("github")): quit "Uploading to github failed no github 
 let 
     token = jsonData["github"]["token"].getStr()
     url = jsonData["github"]["repo"].getStr()
-    tag = now().format("ddMMMYYYY'.'HHmm")
+    timeFormat = jsonData["github"]["tag-format"].getStr()
+    tag = now().format(timeFormat)
     postData = %*{"tag_name" : tag,
                     "target_commitish" : built.branch,
                     "name" : "Automated Build",
@@ -37,5 +38,7 @@ for x in built.platforms:
     
     let postUrl = uploadUrl.replace("{?name",fmt"?name={buildName}.zip").replace("label}","")
     var data = readFile(fmt"{buildName}.zip")
+    echo &"Starting to Upload {x}\n"
     discard webClient.post(postUrl, data)
+    echo &"Uploaded {x}\n"
     removeFile(fmt"{buildName}.zip")
