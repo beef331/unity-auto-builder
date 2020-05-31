@@ -15,10 +15,12 @@ or if you used nimble install
 ## Pre/Post Scripts
 The itch.io and Github uploaders require to be built with `-d:ssl` and have only been tested on linux.
 
-To build them simply just 
+To build them simply `nimble install nimarchive`
 
-`nim -c -d:ssl ./src/itchiouploader.nim`
+then
 
-`nim -c -d:ssl ./src/githubuploader.nim`
+`nim c -d:ssl ./src/itchiouploader.nim`
+
+`nim c -d:ssl ./src/githubuploader.nim`
 
 To write a custom script in any language simply take the first parameter as the path to the config which is relative to the workdir since the autobuilder moves to that directory.
