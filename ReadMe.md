@@ -25,4 +25,4 @@ then
 
 The github tag-format can be customized following [this parsing logic](https://nim-lang.org/docs/times.html#parsing-and-formatting-dates)
 
-To write a custom script in any language simply take the first parameter as the path to the config which is relative to the workdir since the autobuilder moves to that directory.
+To write a custom script in any language simply take the first parameter as the path to the config, which is relative to the workdir since the autobuilder moves to that directory.
