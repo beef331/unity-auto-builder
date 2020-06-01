@@ -4,8 +4,12 @@
     "branch" : "master",
     "name" : "Project-Name",
     "unity-path" : "Path/To/Unity/Binary",
-    "precompile-script" : "/Path/To/Script",
-    "post-compile-script" : "/PathTo/Script",
+    "pre-compile-scripts" : [
+        "/Path/To/Script"
+    ],
+    "post-compile-scripts" : [
+        "/PathTo/Script"
+    ],
     "platforms" :
     [
         "windows",

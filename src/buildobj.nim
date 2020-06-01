@@ -5,8 +5,8 @@ const
     repo = "repo"
     branch = "branch"
     unityPath = "unity-path"
-    preBuild = "pre-compile-script"
-    postBuild = "post-compile-script"
+    preBuild = "pre-compile-scripts"
+    postBuild = "post-compile-scripts"
     platforms = "platforms"
     name = "name"
     subPath = "project-sub-path"
@@ -15,9 +15,9 @@ type
     BuildPlatforms* {.size: sizeof(cint).} = enum
         bpWin, bpLinux, bpMac, bpAndr, bpWeb, bpIos
     BuildObj* = object
-        unityPath*, repo*, branch*, preBuild*, postBuild*,
-         name*, subPath*, lastCommitBuilt*: string
+        unityPath*, repo*, branch*, name*, subPath*, lastCommitBuilt*: string
         platforms*: set[BuildPlatforms]
+        preBuild*, postBuild*: seq[string]
 
 proc parseConfig*(path: string): BuildObj =
     ##Loads the file into a config
@@ -50,12 +50,16 @@ proc parseConfig*(path: string): BuildObj =
         result.branch = "master"
 
     if(rootNode.contains(preBuild)):
-        let path = rootNode[preBuild].getStr()
-        if(path.fileExists()): result.preBuild = path
+        let prebuildScripts = rootNode[preBuild]
+        for pathNode in prebuildScripts:
+            let path = pathNode.getStr()
+            if(path.fileExists()): result.preBuild.add(path)
 
     if(rootNode.contains(postBuild)):
-        let path = rootNode[postBuild].getStr()
-        if(path.fileExists()): result.postBuild = path
+        let postBuildScripts = rootNode[preBuild]
+        for pathNode in postBuildScripts:
+            let path = pathNode.getStr()
+            if(path.fileExists()): result.postBuild.add(path)
 
     if(rootNode.contains(platforms)):
         for platform in rootNode[platforms]:

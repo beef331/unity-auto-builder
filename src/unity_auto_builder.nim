@@ -174,8 +174,8 @@ proc buildProjects(obj: BuildObj) =
     var time = now().format("yyyy-MM-dd   HH:mmtt")
     echo fmt"{time} Attempting to build {obj.platforms}"
     building = true
-    if(not obj.preBuild.isEmptyOrWhitespace):
-        discard execShellCmd(obj.preBuild)
+    for preBuild in obj.preBuild:
+        discard execShellCmd(preBuild)
     try:
         let startTime = getTime()
         var buildCommands: seq[string]
@@ -203,8 +203,10 @@ proc buildProjects(obj: BuildObj) =
         echo fmt"Commit: {obj.lastCommitBuilt}"
         echo &"Elapsed Time:{delta.seconds} seconds\n"
         createThread(writeThread,commitMessage)
-        if(fileExists(obj.postBuild)):
-            discard execShellCmd(fmt"{obj.postBuild} {configPath}")
+        for postBuild in obj.postBuild:
+            if(fileExists(postBuild)):
+                discard execShellCmd(fmt"{postBuild} {configPath}")
+
     except: echo "Build Error"
 
 proc getSha(obj : BuildObj):string=
