@@ -204,8 +204,7 @@ proc buildProjects(obj: BuildObj) =
         echo &"Elapsed Time:{delta.seconds} seconds\n"
         createThread(writeThread,commitMessage)
         for postBuild in obj.postBuild:
-            if(fileExists(postBuild)):
-                discard execShellCmd(fmt"{postBuild} {configPath}")
+            discard execShellCmd(fmt"{postBuild} {configPath}")
 
     except: echo "Build Error"
 

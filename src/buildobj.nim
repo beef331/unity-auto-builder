@@ -56,7 +56,7 @@ proc parseConfig*(path: string): BuildObj =
             if(path.fileExists()): result.preBuild.add(path)
 
     if(rootNode.contains(postBuild)):
-        let postBuildScripts = rootNode[preBuild]
+        let postBuildScripts = rootNode[postBuild]
         for pathNode in postBuildScripts:
             let path = pathNode.getStr()
             if(path.fileExists()): result.postBuild.add(path)
