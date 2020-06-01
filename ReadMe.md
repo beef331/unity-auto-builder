@@ -13,6 +13,8 @@ or if you used nimble install
 `unity_auto_builder /path/to/config.json`
 
 ## Pre/Post Scripts
+These scripts can be any exectuable program. For post build scripts a path to the config jsonis passed, which you can reparse for your own needs.
+
 The itch.io and Github uploaders require to be built with `-d:ssl` and have only been tested on linux.
 
 To build them simply `nimble install nimarchive`
@@ -25,4 +27,3 @@ then
 
 The github tag-format can be customized following [this parsing logic](https://nim-lang.org/docs/times.html#parsing-and-formatting-dates)
 
-To write a custom script in any language simply take the first parameter as the path to the config, which is relative to the workdir since the autobuilder moves to that directory.
