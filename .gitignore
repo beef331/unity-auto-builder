@@ -8,3 +8,6 @@ temp/
 temp.tar.gz
 */
 !src
+*.zip
+/src/githubuploader
+/src/itchiouploader

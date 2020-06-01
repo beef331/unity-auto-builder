@@ -41,4 +41,4 @@ for x in built.platforms:
     echo &"Starting to Upload {x}\n"
     discard webClient.post(postUrl, data)
     echo &"Uploaded {x}\n"
-    removeFile(fmt"{buildName}.zip")
+    #removeFile(fmt"{buildName}.zip")

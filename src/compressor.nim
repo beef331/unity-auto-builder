@@ -26,7 +26,7 @@ proc compress*(name : string, paths : seq[string])=
         archiveEntrySetPathname(entry,name)
         archiveEntrySetSize(entry,info.size)
         archiveEntrySetFiletype(entry,AE_IFREG.cuint)
-        archiveEntrySetPerm(entry,0644)
+        archiveEntrySetPerm(entry,0777)
         discard archiveWriteHeader(a,entry)
         len = file.readBuffer(buff.addr,buff.len)
 
