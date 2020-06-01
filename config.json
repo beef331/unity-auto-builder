@@ -18,6 +18,7 @@
     },
     "github":{
         "token" : "{TOKEN-HERE}",
-        "repo" : "https://api.github.com/repos/{NAME-HERE}/{REPO-HERE}/releases"
+        "repo" : "https://api.github.com/repos/{NAME-HERE}/{REPO-HERE}/releases",
+        "tag-format" : "ddMMMYYYY'.'HHmm"
     }
 }
