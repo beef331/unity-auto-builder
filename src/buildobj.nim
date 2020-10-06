@@ -3,7 +3,7 @@ import json,os,strutils
 
 const
     repo = "repo"
-    branch = "branch"
+    branch = "branches"
     unityPath = "unity-path"
     preBuild = "pre-compile-scripts"
     postBuild = "post-compile-scripts"
@@ -15,9 +15,11 @@ type
     BuildPlatforms* {.size: sizeof(cint).} = enum
         bpWin, bpLinux, bpMac, bpAndr, bpWeb, bpIos
     BuildObj* = object
-        unityPath*, repo*, branch*, name*, subPath*, lastCommitBuilt*: string
+        unityPath*, repo*, name*, subPath*, lastCommitBuilt*: string
         platforms*: set[BuildPlatforms]
         preBuild*, postBuild*: seq[string]
+        branches*: seq[string]
+        branch*: string#used to store currently building branch
 
 proc parseConfig*(path: string): BuildObj =
     ##Loads the file into a config
@@ -44,11 +46,11 @@ proc parseConfig*(path: string): BuildObj =
         result.name = "untitled"
 
     if(rootNode.contains(branch)):
-        result.branch = rootNode[branch].getStr()
+      for x in rootNode[branch]:
+        result.branches.add(x.getStr())
     else:
         echo "No branch in json, using master"
-        result.branch = "master"
-
+        result.branches.add("master")
     if(rootNode.contains(preBuild)):
         let prebuildScripts = rootNode[preBuild]
         for pathNode in prebuildScripts:
