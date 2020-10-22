@@ -31,21 +31,34 @@ var uploadUrl: string
 if(resJson.contains("upload_url")): uploadUrl = resJson["upload_url"].getStr()
 webClient.headers = newHttpHeaders({"Authorization": fmt"token {token}",
         "Content-Type": "application/zip"})
-var buildname = ""
+var 
+  buildname = ""
+  logName = ""
 for x in built.platforms:
   if(x == bpWin):
     buildname = "win-build"
+    logName = "win"
   elif(x == bpLinux):
     buildname = "linux-build"
+    logName = "linux"
   elif(x == bpMac):
     buildname = "mac-build"
-  let fileName = fmt"{buildName}-{branch}.zip"
+    logName = "mac"
+  let 
+    fileName = fmt"{buildName}-{branch}.zip"
+    logFile = fmt"{logName}{branch}Log.txt"
   compress(fileName, @[fmt"{buildName}/{branch}"])
 
-  let postUrl = uploadUrl.replace("{?name",
+  let 
+    postUrl = uploadUrl.replace("{?name",
           fmt"?name={fileName}").replace("label}", "")
-  var data = readFile(fileName)
-  echo &"Starting to Upload {x}\n"
-  discard webClient.post(postUrl, data)
-  echo &"Uploaded {x}\n"
+    logUrl = uploadUrl.replace("{?name",
+          fmt"?name={logFile}").replace("label}", "")
+
+  echo &"Starting to Upload {branch} {buildName}\n"
+
+  discard webClient.post(postUrl, readFile(fileName))
+  discard webClient.post(logUrl, readFile(logFile))
+
+  echo &"Uploaded {branch} {buildName}\n"
   #removeFile(fmt"{buildName}.zip")
