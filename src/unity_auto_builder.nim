@@ -9,7 +9,6 @@ import os,
        terminal,
        buildobj
 
-
 if(paramCount() < 1):
   quit "Please supply a path to the config you wish to use"
 

@@ -1,7 +1,6 @@
 import os, httpclient, distros, strutils, json, strformat, times
 import nimarchive
 import compressor, buildobj
-echo commandLineParams()
 
 let
   config = paramStr(1)
@@ -9,6 +8,7 @@ let
   built = parseConfig(config)
   jsonData = parseJson(readFile(config))
   webClient = newHttpClient()
+config.splitFile.dir.setCurrentDir
 if(not jsonData.contains("github")): quit "Uploading to github failed no github settings"
 let
   token = jsonData["github"]["token"].getStr()
