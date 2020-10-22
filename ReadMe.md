@@ -21,9 +21,9 @@ To build them simply `nimble install nimarchive`
 
 then
 
-`nim c -d:ssl ./src/itchiouploader.nim`
+`nim c ./src/itchiouploader.nim`
 
-`nim c -d:ssl ./src/githubuploader.nim`
+`nim c ./src/githubuploader.nim`
 
 The github tag-format can be customized following [this parsing logic](https://nim-lang.org/docs/times.html#parsing-and-formatting-dates)
 
