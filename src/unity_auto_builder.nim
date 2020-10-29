@@ -30,9 +30,11 @@ if(not fileExists(configPath)):
   quit(fmt"Config File not found at {configPath}")
 
 proc saveState(obj: BuildObj) =
+  acquire L
   var file = open(fmt"lastRun{obj.branch}.txt", fmWrite)
   file.writeLine(obj.lastCommitBuilt)
   file.close()
+  release L
 
 proc loadState(obj: var BuildObj) =
   if(fileExists(fmt"lastRun{obj.branch}.txt")):
@@ -128,18 +130,17 @@ proc resyncBuildFiles(obj: BuildObj) =
   discard execShellCmd(fmt"git -C ./{obj.branch} pull")
 
   for platform in obj.platforms:
-    if(not dirExists($platform)):
-      createDir($platform)
-    if(not dirExists(fmt"{$platform}/{obj.branch}")):
-      createDir(fmt"{$platform}/{obj.branch}")
-
+    discard existsOrCreateDir($platform)
+    discard existsOrCreateDir(fmt"{$platform}/{obj.branch}")
+    discard existsOrCreateDir(fmt"{$platform}/{obj.branch}/{obj.subPath}")
     for dir in walkDir(obj.branch & DirSep & obj.subPath):
       let
         absDirPath = fmt"{getCurrentDir()}/{dir.path}"
         name = dir.path.splitPath().tail
-        absSymPath = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{name}"
-      if(dirExists(absSymPath) or fileExists(absSymPath)): continue
-      createSymlink(absDirPath, absSymPath)
+        absSymPath = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/{name}"
+      echo absSymPath, " ", absDirPath
+      if not fileExists(absSymPath) and not dirExists(absSymPath):
+        createSymlink(absDirPath, absSymPath)
 
 proc cloneBuild(obj: BuildObj) =
   ##Clones repo
@@ -152,7 +153,6 @@ proc cloneBuild(obj: BuildObj) =
 proc buildProjects(obj: BuildObj){.thread.} =
   ##Build each platform async to build many at once
   obj.resyncBuildFiles()
-
   {.cast(gcsafe).}:#Copies from global
     deepCopy(threadConfPath, configPath)
 
@@ -167,13 +167,13 @@ proc buildProjects(obj: BuildObj){.thread.} =
     let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit "
     if(obj.platforms.contains(bpWin)):
       buildCommands.add(buildCommand &
-              fmt"-projectPath '{getCurrentDir()}/bpWin/{obj.branch}/{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.branch}/{obj.name}.exe -logFile {getCurrentDir()}/win{obj.branch}Log.txt")
+              fmt"-projectPath 'bpWin/{obj.branch}/{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.branch}/{obj.name}.exe -logFile {getCurrentDir()}/win{obj.branch}Log.txt")
     if(obj.platforms.contains(bpLinux)):
       buildCommands.add(buildCommand &
-              fmt"-projectPath '{getCurrentDir()}/bpLinux/{obj.branch}/{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.branch}/{obj.name}.x86_64 -logFile {getCurrentDir()}/linux{obj.branch}Log.txt")
+              fmt"-projectPath 'bpLinux/{obj.branch}/{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.branch}/{obj.name}.x86_64 -logFile {getCurrentDir()}/linux{obj.branch}Log.txt")
     if(obj.platforms.contains(bpMac)):
       buildCommands.add(buildCommand &
-              fmt"-projectPath '{getCurrentDir()}/bpMac/{obj.branch}/{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.branch}/{obj.name}.dmg -logFile {getCurrentDir()}/mac{obj.branch}Log.txt")
+              fmt"-projectPath 'bpMac/{obj.branch}/{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.branch}/{obj.name}.dmg -logFile {getCurrentDir()}/mac{obj.branch}Log.txt")
     discard execProcesses(buildCommands, {})
     let delta = (getTime() - startTime)
     time = now().format("yyyy-MM-dd   HH:mmtt")
@@ -187,21 +187,18 @@ proc buildProjects(obj: BuildObj){.thread.} =
   dec building
 
 proc getSha(obj: BuildObj): string =
-  discard execCmd(fmt"git -C ./{obj.branch} fetch")
+  discard execCmd(fmt"git -C ./{obj.branch} pull")
   result = execCmdEx(fmt"git -C ./{obj.branch} log -1 --format=%H").output.strip()
 
 setCurrentDir(configPath.splitPath().head)
 
 proc watchLogic(build: BuildObj){.thread.} =
-  var
-    build = build
-    writeThread: Thread[void]
+  var build = build
   build.loadState()
   build.cloneBuild()
   while true:
     let sha = build.getSha()
     if(sha != build.lastCommitBuilt):
-      joinThread(writeThread)
       build.lastCommitBuilt = sha
       buildProjects(build)
       build.saveState()
