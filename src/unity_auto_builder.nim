@@ -138,8 +138,9 @@ proc resyncBuildFiles(obj: BuildObj) =
         absDirPath = fmt"{getCurrentDir()}/{dir.path}"
         name = dir.path.splitPath().tail
         absSymPath = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/{name}"
-      echo absSymPath, " ", absDirPath
-      if not fileExists(absSymPath) and not dirExists(absSymPath):
+      if name == "Packages":
+        copyDirWithPermissions(absDirPath, absSymPath)
+      elif not fileExists(absSymPath) and not dirExists(absSymPath):
         createSymlink(absDirPath, absSymPath)
 
 proc cloneBuild(obj: BuildObj) =
