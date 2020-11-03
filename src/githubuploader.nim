@@ -47,18 +47,19 @@ for x in built.platforms:
   let 
     fileName = fmt"{buildName}-{branch}.zip"
     logFile = fmt"{logName}{branch}Log.txt"
-  compress(fileName, @[fmt"{buildName}/{branch}"])
+  if fileExists(fileName):
+    compress(fileName, @[fmt"{buildName}/{branch}"])
 
-  let 
-    postUrl = uploadUrl.replace("{?name",
-          fmt"?name={fileName}").replace("label}", "")
-    logUrl = uploadUrl.replace("{?name",
-          fmt"?name={logFile}").replace("label}", "")
+    let 
+      postUrl = uploadUrl.replace("{?name",
+            fmt"?name={fileName}").replace("label}", "")
+      logUrl = uploadUrl.replace("{?name",
+            fmt"?name={logFile}").replace("label}", "")
 
-  echo &"Starting to Upload {branch} {buildName}\n"
+    echo &"Starting to Upload {branch} {buildName}\n"
 
-  discard webClient.post(postUrl, readFile(fileName))
-  discard webClient.post(logUrl, readFile(logFile))
+    discard webClient.post(postUrl, readFile(fileName))
+    discard webClient.post(logUrl, readFile(logFile))
 
-  echo &"Uploaded {branch} {buildName}\n"
+    echo &"Uploaded {branch} {buildName}\n"
   #removeFile(fmt"{buildName}.zip")

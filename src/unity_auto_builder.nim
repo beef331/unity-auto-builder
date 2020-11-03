@@ -138,6 +138,7 @@ proc resyncBuildFiles(obj: BuildObj) =
         name = dir.path.splitPath().tail
         absSymPath = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/{name}"
       if name == "Packages":
+        removeDir(absSymPath)
         copyDirWithPermissions(absDirPath, absSymPath)
       elif not fileExists(absSymPath) and not dirExists(absSymPath):
         createSymlink(absDirPath, absSymPath)
@@ -187,7 +188,7 @@ proc buildProjects(obj: BuildObj){.thread.} =
   dec building
 
 proc getSha(obj: BuildObj): string =
-  discard execCmd(fmt"git -C ./{obj.branch} pull")
+  discard execCmd(fmt"git -C ./{obj.branch} pull >> /dev/null")
   result = execCmdEx(fmt"git -C ./{obj.branch} log -1 --format=%H").output.strip()
 
 setCurrentDir(configPath.splitPath().head)
