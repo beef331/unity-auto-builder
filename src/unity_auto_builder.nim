@@ -165,7 +165,7 @@ proc buildProjects(obj: BuildObj){.thread.} =
   try:
     let startTime = getTime()
     var buildCommands: seq[string]
-    let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit -accept-apiupdate"
+    let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit -accept-apiupdate "
     if(obj.platforms.contains(bpWin)):
       buildCommands.add(buildCommand &
               fmt"-projectPath 'bpWin/{obj.branch}/{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.branch}/{obj.name}.exe -logFile {getCurrentDir()}/win-{obj.branch}.log")
