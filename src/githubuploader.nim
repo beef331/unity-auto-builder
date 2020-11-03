@@ -47,7 +47,8 @@ for x in built.platforms:
   let 
     fileName = fmt"{buildName}-{branch}.zip"
     logFile = fmt"{logName}{branch}Log.txt"
-  if fileExists(fileName):
+  if dirExists(fmt"{buildName}/{branch}"):
+    discard tryRemoveFile(fileName)
     compress(fileName, @[fmt"{buildName}/{branch}"])
 
     let 
@@ -62,4 +63,3 @@ for x in built.platforms:
     discard webClient.post(logUrl, readFile(logFile))
 
     echo &"Uploaded {branch} {buildName}\n"
-  #removeFile(fmt"{buildName}.zip")
