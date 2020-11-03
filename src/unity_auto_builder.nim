@@ -1,6 +1,5 @@
 import os,
        osproc,
-       httpclient,
        json,
        strformat,
        strutils,
@@ -165,16 +164,16 @@ proc buildProjects(obj: BuildObj){.thread.} =
   try:
     let startTime = getTime()
     var buildCommands: seq[string]
-    let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit "
+    let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit -accept-apiupdate"
     if(obj.platforms.contains(bpWin)):
       buildCommands.add(buildCommand &
-              fmt"-projectPath 'bpWin/{obj.branch}/{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.branch}/{obj.name}.exe -logFile {getCurrentDir()}/win{obj.branch}Log.txt")
+              fmt"-projectPath 'bpWin/{obj.branch}/{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.branch}/{obj.name}.exe -logFile {getCurrentDir()}/win-{obj.branch}.log")
     if(obj.platforms.contains(bpLinux)):
       buildCommands.add(buildCommand &
-              fmt"-projectPath 'bpLinux/{obj.branch}/{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.branch}/{obj.name}.x86_64 -logFile {getCurrentDir()}/linux{obj.branch}Log.txt")
+              fmt"-projectPath 'bpLinux/{obj.branch}/{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.branch}/{obj.name}.x86_64 -logFile {getCurrentDir()}/linux-{obj.branch}.log")
     if(obj.platforms.contains(bpMac)):
       buildCommands.add(buildCommand &
-              fmt"-projectPath 'bpMac/{obj.branch}/{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.branch}/{obj.name}.dmg -logFile {getCurrentDir()}/mac{obj.branch}Log.txt")
+              fmt"-projectPath 'bpMac/{obj.branch}/{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.branch}/{obj.name}.dmg -logFile {getCurrentDir()}/mac-{obj.branch}.log")
     discard execProcesses(buildCommands, {})
     let delta = (getTime() - startTime)
     time = now().format("yyyy-MM-dd   HH:mmtt")
