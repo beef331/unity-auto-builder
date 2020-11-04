@@ -46,7 +46,7 @@ for x in built.platforms:
     logName = "mac"
   let 
     fileName = fmt"{buildName}-{branch}.zip"
-    logFile = fmt"{logName}{branch}Log.txt"
+    logFile = fmt"{logName}-{branch}.log"
   if dirExists(fmt"{buildName}/{branch}"):
     discard tryRemoveFile(fileName)
     compress(fileName, @[fmt"{buildName}/{branch}"])
@@ -60,6 +60,7 @@ for x in built.platforms:
     echo &"Starting to Upload {branch} {buildName}\n"
 
     discard webClient.post(postUrl, readFile(fileName))
-    discard webClient.post(logUrl, readFile(logFile))
+    if fileExists(logFile): 
+      discard webClient.post(logUrl, readFile(logFile))
 
     echo &"Uploaded {branch} {buildName}\n"
