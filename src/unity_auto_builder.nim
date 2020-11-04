@@ -138,8 +138,13 @@ proc resyncBuildFiles(obj: BuildObj) =
         name = dir.path.splitPath().tail
         absSymPath = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/{name}"
       if name == "Packages":
-        removeDir(absSymPath)
+        if dirExists(absSymPath): removeDir(absSymPath)
         copyDirWithPermissions(absDirPath, absSymPath)
+      if name == "Assets":
+        discard existsOrCreateDir(absSymPath)
+        for path in walkDir(absDirPath):
+          let symDir = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/Assets/{path.path.splitPath().tail}"
+          if not fileExists(symDir) and not dirExists(symDir): createSymlink(path.path, symDir)
       elif not fileExists(absSymPath) and not dirExists(absSymPath):
         createSymlink(absDirPath, absSymPath)
 
