@@ -193,6 +193,7 @@ proc buildProjects(obj: BuildObj){.thread.} =
   dec building
 
 proc getSha(obj: BuildObj): string =
+  discard execCmd(fmt"git -C ./{obj.branch} reset --hard >> /dev/null")
   discard execCmd(fmt"git -C ./{obj.branch} pull >> /dev/null")
   result = execCmdEx(fmt"git -C ./{obj.branch} log -1 --format=%H").output.strip()
 
