@@ -1,66 +1,48 @@
-import os, httpclient, distros, strutils, json, strformat, times
-import nimarchive
-import compressor, buildobj
+import buildobj,
+  httpclient,
+  times,
+  strutils,
+  json,
+  os,
+  strformat
+proc uploadGithub*(archivePath, logPath: string, build: BuildObj, platform: BuildPlatforms, uploadUrl: var string) =
+  ## Uploads to github and sets  uploadUrl so we can upload multiple builds to a single source
+  if(github in build.buildInfo):
+    let
+      token = build.buildInfo[github]["token"]
+      url = build.buildInfo[github]["repo"]
+      timeFormat = build.buildInfo[github]["time-format"]
+      tagFormat = build.buildInfo[github]["tag-format"]
+      time = now().format(timeFormat)
+      tag = tagFormat.multiReplace(("$name", build.name), ("$time", time), ("$os", $platform))
+      postData = %*{"tag_name": tag,
+                      "target_commitish": build.branch,
+                      "name": "Automated Build",
+        }
+    var webClient = newHttpClient()
+    webClient.headers = newHttpHeaders({"Authorization": fmt"token {token}"})
 
-let
-  config = paramStr(1)
-  branch = paramStr(2)
-  built = parseConfig(config)
-  jsonData = parseJson(readFile(config))
-  webClient = newHttpClient()
-config.splitFile.dir.setCurrentDir
-if(not jsonData.contains("github")): quit "Uploading to github failed no github settings"
-let
-  token = jsonData["github"]["token"].getStr()
-  url = jsonData["github"]["repo"].getStr()
-  timeFormat = jsonData["github"]["time-format"].getStr()
-  tagFormat = jsonData["github"]["tag-format"].getStr()
-  time = now().format(timeFormat)
-  tag = tagFormat.replace("$name", built.name).replace("$time", time)
-  postData = %*{"tag_name": tag,
-                  "target_commitish": branch,
-                  "name": "Automated Build",
-    }
-
-webClient.headers = newHttpHeaders({"Authorization": fmt"token {token}"})
-
-let
-  res = webClient.post(url, $postData)
-  resJson = res.body.parseJson()
-var uploadUrl: string
-if(resJson.contains("upload_url")): uploadUrl = resJson["upload_url"].getStr()
-webClient.headers = newHttpHeaders({"Authorization": fmt"token {token}",
-        "Content-Type": "application/zip"})
-var 
-  buildname = ""
-  logName = ""
-for x in built.platforms:
-  if(x == bpWin):
-    buildname = "win-build"
-    logName = "win"
-  elif(x == bpLinux):
-    buildname = "linux-build"
-    logName = "linux"
-  elif(x == bpMac):
-    buildname = "mac-build"
-    logName = "mac"
-  let 
-    fileName = fmt"{buildName}-{branch}.zip"
-    logFile = fmt"{logName}-{branch}.log"
-  if dirExists(fmt"{buildName}/{branch}"):
-    discard tryRemoveFile(fileName)
-    compress(fileName, @[fmt"{buildName}/{branch}"])
-
-    let 
+    let
+      res = webClient.post(url, $postData)
+      resJson = res.body.parseJson()
+    if(resJson.contains("upload_url") and uploadUrl == ""): uploadUrl = resJson["upload_url"].getStr()
+    webClient.headers = newHttpHeaders({"Authorization": fmt"token {token}",
+            "Content-Type": "application/zip"})
+    
+    let
+      ext = ".tar.gz" #Figure out later based off OS
+      fileName = build.buildInfo[github]["name-format"].multiReplace(("$name", build.name), ("$time", time), ("$os", $platform)) & ext
+      logFile = logPath.splitPath.tail
       postUrl = uploadUrl.replace("{?name",
             fmt"?name={fileName}").replace("label}", "")
       logUrl = uploadUrl.replace("{?name",
             fmt"?name={logFile}").replace("label}", "")
 
-    echo &"Starting to Upload {branch} {buildName}\n"
-
-    discard webClient.post(postUrl, readFile(fileName))
-    if fileExists(logFile): 
+    echo &"\nStarting to Upload {build.branch} {fileName} to Github\n"
+    if fileExists(archivePath):
+      discard webClient.post(postUrl, readFile(archivePath))
+    if fileExists(logPath):
       discard webClient.post(logUrl, readFile(logFile))
-
-    echo &"Uploaded {branch} {buildName}\n"
+    webClient.close()
+    echo &"\n Uploaded {build.branch} {fileName} to Github\n"
+    removeFile(archivePath)

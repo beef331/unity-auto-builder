@@ -12,3 +12,4 @@ bin           = @["unity_auto_builder"]
 # Dependencies
 
 requires "nim >= 1.2.0"
+requires "zippy"

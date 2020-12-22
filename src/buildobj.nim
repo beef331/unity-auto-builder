@@ -1,5 +1,5 @@
-import json, os, strutils
-
+import json, os, strutils, tables
+export tables
 
 const
   repo = "repo"
@@ -10,16 +10,20 @@ const
   platforms = "platforms"
   name = "name"
   subPath = "project-sub-path"
+  github* = "github"
+  googleCloud* = "google-cloud"
 
 type
+  BuildInfo* = Table[string, string]
   BuildPlatforms* {.size: sizeof(cint).} = enum
-    bpWin, bpLinux, bpMac, bpAndr, bpWeb, bpIos
+    bpWin = "win", bpLinux = "linux" , bpMac = "mac" , bpAndr, bpWeb, bpIos
   BuildObj* = object
     unityPath*, repo*, name*, subPath*, lastCommitBuilt*: string
     platforms*: set[BuildPlatforms]
     preBuild*, postBuild*: seq[string]
     branches*: seq[string]
     branch*: string #used to store currently building branch
+    buildInfo*: Table[string, BuildInfo]
 
 proc parseConfig*(path: string): BuildObj =
   ##Loads the file into a config
@@ -75,3 +79,8 @@ proc parseConfig*(path: string): BuildObj =
       of "web", "webgl": result.platforms = result.platforms + {bpWeb}
   else:
     quit "No platforms found, quitting"
+
+  if(rootNode.contains(github)):
+    discard result.buildInfo.hasKeyOrPut(github, BuildInfo())
+    for k, v in rootNode[github].pairs:
+      result.buildInfo[github][k] = v.getStr

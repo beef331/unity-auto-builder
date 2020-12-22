@@ -1,12 +1,14 @@
 import os,
-       osproc,
-       json,
-       strformat,
-       strutils,
-       times,
-       locks,
-       terminal,
-       buildobj
+      osproc,
+      json,
+      strformat,
+      strutils,
+      times,
+      locks,
+      terminal,
+      buildobj,
+      zippy/tarballs
+import githubuploader
 
 if(paramCount() < 1):
   quit "Please supply a path to the config you wish to use"
@@ -36,9 +38,9 @@ proc saveState(obj: BuildObj) =
   release L
 
 proc loadState(obj: var BuildObj) =
-  if(fileExists(fmt"lastRun{obj.branch}.txt")):
+  if(fileExists(fmt"last-run-{obj.branch}.txt")):
     let
-      file = open(fmt"lastRun{obj.branch}.txt", fmRead)
+      file = open(fmt"last-run-{obj.branch}.txt", fmRead)
     obj.lastCommitBuilt = file.readLine()
     file.close()
   saveState(obj)
@@ -169,18 +171,40 @@ proc buildProjects(obj: BuildObj){.thread.} =
     discard execShellCmd(fmt"{preBuild} {threadConfPath} {obj.branch}")
   try:
     let startTime = getTime()
-    var buildCommands: seq[string]
+    var 
+      buildCommands: seq[string]
+      built: seq[BuildPlatforms]
     let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit -accept-apiupdate "
     if(obj.platforms.contains(bpWin)):
+      built.add bpWin
       buildCommands.add(buildCommand &
               fmt"-projectPath 'bpWin/{obj.branch}/{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.branch}/{obj.name}.exe -logFile {getCurrentDir()}/win-{obj.branch}.log")
     if(obj.platforms.contains(bpLinux)):
+      built.add bpLinux
       buildCommands.add(buildCommand &
               fmt"-projectPath 'bpLinux/{obj.branch}/{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.branch}/{obj.name}.x86_64 -logFile {getCurrentDir()}/linux-{obj.branch}.log")
     if(obj.platforms.contains(bpMac)):
+      built.add bpMac
       buildCommands.add(buildCommand &
               fmt"-projectPath 'bpMac/{obj.branch}/{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.branch}/{obj.name}.dmg -logFile {getCurrentDir()}/mac-{obj.branch}.log")
-    discard execProcesses(buildCommands, {})
+    var githubUrl = ""
+    discard execProcesses(buildCommands, {}, afterRunEvent = proc(id: int, _: Process)=
+      let 
+        platform = built[id]
+        (folderPath, archivePath) = case platform:
+        of bpWin: (fmt"win-build/{obj.branch}", fmt"win-build/{obj.branch}.tar.gz")
+        of bpLinux: (fmt"linux-build/{obj.branch}", fmt"linux-build/{obj.branch}.tar.gz")
+        of bpMac: (fmt"mac-build/{obj.branch}", fmt"mac-build/{obj.branch}.tar.gz")
+        else: ("", "")
+        logPath = case platform:
+        of bpWin: fmt"{getCurrentDir()}/win-{obj.branch}.log"
+        of bpLinux: fmt"{getCurrentDir()}/linux-{obj.branch}.log"
+        of bpMac: fmt"{getCurrentDir()}/mac-{obj.branch}.log"
+        else: ""
+      if dirExists(folderPath):
+        createTarball(folderPath, archivePath)
+      uploadGithub(archivePath, logPath, obj, platform, githubUrl)
+    )
     let delta = (getTime() - startTime)
     time = now().format("yyyy-MM-dd   HH:mmtt")
     echo &"{time}\nBuilds finished \n"
@@ -189,7 +213,7 @@ proc buildProjects(obj: BuildObj){.thread.} =
     for postBuild in obj.postBuild:
       echo "Running post build scripts"
       discard execShellCmd(fmt"{postBuild} {threadConfPath} {obj.branch}")
-  except: echo "Build Error"
+  except: discard
   dec building
 
 proc getSha(obj: BuildObj): string =

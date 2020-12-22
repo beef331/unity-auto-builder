@@ -26,6 +26,7 @@
         "token" : "{TOKEN-HERE}",
         "repo" : "https://api.github.com/repos/{NAME-HERE}/{REPO-HERE}/releases",
         "time-format" : "ddMMMYYYY'.'HHmm",
-        "tag-format" : "$name$time"
+        "tag-format" : "$name$time",
+        "name-format" : "$name-$os"
     }
 }
