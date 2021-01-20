@@ -30,7 +30,10 @@ proc uploadGithub*(archivePath, logPath: string, build: BuildObj, platform: Buil
             "Content-Type": "application/zip"})
     
     let
-      ext = ".tar.gz" #Figure out later based off OS
+      ext = 
+        case platform:
+        of bpWin: ".zip"
+        else: ".tar.gz" #Figure out later based off OS
       fileName = build.buildInfo[github]["name-format"].multiReplace(("$name", build.name), ("$time", time), ("$os", $platform)) & ext
       logFile = logPath.splitPath.tail
       postUrl = uploadUrl.replace("{?name",
