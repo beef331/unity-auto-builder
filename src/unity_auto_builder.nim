@@ -8,7 +8,8 @@ import os,
       terminal,
       buildobj,
       zippy/[tarballs, ziparchives],
-      asyncdispatch
+      asyncdispatch,
+      sugar
 import githubuploader, googleuploader
 
 if(paramCount() < 1):
@@ -25,7 +26,6 @@ var
   building = 0
   buildThreads: seq[Thread[BuildObj]]
   threadConfPath{.threadvar.}: string
-  googleQueue: seq[(string, string, BuildObj, BuildPlatforms)]
   L: Lock
 initLock(L)
 
@@ -127,11 +127,6 @@ proc commitMessage(){.thread.} =
       cursorUp(stdout, 1)
       tick = (tick + 1 + waitingAnim.len).mod(waitingAnim.len)
 
-proc uploadGoogle(){.async.} =
-  echo &"\n\n{googleQueue}\n\n"
-  for (arch, log, build, plat) in googleQueue:
-    await uploadGoogle(arch, log, build, plat)
-  googleQueue.setLen(0)
 
 proc resyncBuildFiles(obj: BuildObj) =
   discard execShellCmd(fmt"git -C ./{obj.branch} pull")
@@ -194,14 +189,15 @@ proc buildProjects(obj: BuildObj){.thread.} =
       built.add bpMac
       buildCommands.add(buildCommand &
               fmt"-projectPath 'bpMac/{obj.branch}/{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.branch}/{obj.name}.dmg -logFile {getCurrentDir()}/mac-{obj.branch}.log")
-    var githubUrl = ""
+    var
+      githubUrl = ""
     discard execProcesses(buildCommands, {}, afterRunEvent = proc(id: int, _: Process) =
       let 
         platform = built[id]
         (folderPath, archivePath) = case platform:
-        of bpWin: (fmt"win-build/{obj.branch}/", fmt"win-build/{obj.branch}.zip")
-        of bpLinux: (fmt"linux-build/{obj.branch}/", fmt"linux-build/{obj.branch}.tar.gz")
-        of bpMac: (fmt"mac-build/{obj.branch}/", fmt"mac-build/{obj.branch}.tar.gz")
+        of bpWin: (fmt"win-build/{obj.branch}/", fmt"win-build/{obj.branch}{ArchiveExt[platform]}")
+        of bpLinux: (fmt"linux-build/{obj.branch}/", fmt"linux-build/{obj.branch}{ArchiveExt[platform]}")
+        of bpMac: (fmt"mac-build/{obj.branch}/", fmt"mac-build/{obj.branch}{ArchiveExt[platform]}")
         else: ("", "")
         logPath = case platform:
         of bpWin: fmt"{getCurrentDir()}/win-{obj.branch}.log"
@@ -214,13 +210,10 @@ proc buildProjects(obj: BuildObj){.thread.} =
           createTarball(folderPath, archivePath)
         else:
           createZipArchive(folderPath, archivePath)
- 
-      if obj.buildinfo["github"].len > 0:
         uploadGithub(archivePath, logPath, obj, platform, githubUrl)
-      if obj.buildinfo["google-storage"].len > 0:
-        {.cast(gcsafe).}:
-          withLock(L):
-            googleQueue.add (archivePath, logPath, obj, platform)
+      if obj.buildinfo[googleCloud].len > 0:
+        {.cast(gcSafe).}:
+          uploadGoogle(archivePath, logPath, obj, platform)
     )
     let delta = (getTime() - startTime)
     time = now().format("yyyy-MM-dd   HH:mmtt")
@@ -264,7 +257,6 @@ for branch in build.branches:
 echo "Auto Builder Initalized"
 while true:
   if(building <= 0):
-    waitfor uploadGoogle()
     commitMessage()
   else:
     buildingMessage()

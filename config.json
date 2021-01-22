@@ -28,5 +28,11 @@
         "time-format" : "ddMMMYYYY'.'HHmm",
         "tag-format" : "$name$time",
         "name-format" : "$name-$os"
+    },
+    "google-storage":{
+      "authpath": "{AUTH-JSON-PATH}",
+      "bucket": "{BUCKET-NAME}",
+      "path": "{OBJECT-PATH}",
+      "name-format" : "$name_$os"
     }
 }

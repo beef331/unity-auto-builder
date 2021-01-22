@@ -48,4 +48,3 @@ proc uploadGithub*(archivePath, logPath: string, build: BuildObj, platform: Buil
       discard webClient.post(logUrl, readFile(logFile))
     webClient.close()
     echo &"\n Uploaded {build.branch} {fileName} to Github\n"
-    removeFile(archivePath)

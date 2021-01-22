@@ -8,14 +8,15 @@ import std/[
   strformat,
   asyncdispatch
 ]
-proc uploadGoogle*(archivePath, logPath: string, build: BuildObj, platform: BuildPlatforms) {.async.} =
-  echo &"\n Starting to upload: {archivePath}\n"
+proc uploadGoogle*(archivePath, logPath: string, build: BuildObj, platform: BuildPlatforms) =
+  echo &"\nStart Uploading: {archivePath} to Google\n\n"
   let
-    info = build.buildInfo["google-storage"]
+    info = build.buildInfo[googleCloud]
     yourBucket = info["bucket"]
     name = info["name-format"].multiReplace(("$name", build.name), ("$os", $platform))
-    ext = archivePath.splitFile.ext
-    objectId = info["path"] & name & ext
+    ext = ArchiveExt[platform]
+    objectId = info["path"] & "/" & name & ext
   var conn = waitFor newConnection(info["authpath"])
   var err = waitfor conn.upload(yourBucket, objectId, readFile(archivePath))
-  echo &"\n Finished Uploading: {archivePath}\n"
+  writeFile("err", err.pretty)
+  echo &"\nFinished Uploading: {archivePath} to Google\n\n"

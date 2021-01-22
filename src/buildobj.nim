@@ -11,7 +11,7 @@ const
   name = "name"
   subPath = "project-sub-path"
   github* = "github"
-  googleCloud* = "google-cloud"
+  googleCloud* = "google-storage"
 
 type
   BuildInfo* = Table[string, string]
@@ -24,6 +24,16 @@ type
     branches*: seq[string]
     branch*: string #used to store currently building branch
     buildInfo*: Table[string, BuildInfo]
+
+const ArchiveExt* =
+  [
+    bpWin: ".zip",
+    bpLinux: ".tar.gz",
+    bpMac: ".tar.gz",
+    bpAndr: ".tar.gz",
+    bpWeb: ".zip",
+    bpIos: ".tar.gz"
+  ]
 
 proc parseConfig*(path: string): BuildObj =
   ##Loads the file into a config
@@ -84,3 +94,7 @@ proc parseConfig*(path: string): BuildObj =
     discard result.buildInfo.hasKeyOrPut(github, BuildInfo())
     for k, v in rootNode[github].pairs:
       result.buildInfo[github][k] = v.getStr
+  if(rootNode.contains(googleCloud)):
+    discard result.buildInfo.hasKeyOrPut(googleCloud, BuildInfo())
+    for k, v in rootNode[googleCloud].pairs:
+      result.buildInfo[googleCloud][k] = v.getStr
