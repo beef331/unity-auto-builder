@@ -131,12 +131,13 @@ proc commitMessage(){.thread.} =
 proc resyncBuildFiles(obj: BuildObj) =
   discard execShellCmd(fmt"git -C ./{obj.branch} fetch origin")
   discard execShellCmd(fmt"git -C ./{obj.branch} reset --hard origin/master")
-
+  let projectPath = fmt"{obj.branch}/{obj.subPath}"
+  echo projectPath
   for platform in obj.platforms:
     let path = fmt"{$platform}/{obj.branch}/{obj.subPath}"
     for dir in path.parentDirs(fromRoot = true):
       discard existsOrCreateDir(dir)
-    for dir in walkDir(path):
+    for dir in walkDir(projectPath):
       let
         absDirPath = fmt"{getCurrentDir()}/{dir.path}"
         name = dir.path.splitPath().tail
