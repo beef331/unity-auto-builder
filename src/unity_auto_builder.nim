@@ -129,6 +129,7 @@ proc commitMessage(){.thread.} =
 
 
 proc resyncBuildFiles(obj: BuildObj) =
+  discard execShellCmd(fmt"git -C ./{obj.branch} checkout .")
   discard execShellCmd(fmt"git -C ./{obj.branch} pull")
 
   for platform in obj.platforms:
