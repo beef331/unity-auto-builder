@@ -136,7 +136,7 @@ proc resyncBuildFiles(obj: BuildObj) =
     let path = fmt"{$platform}/{obj.branch}/{obj.subPath}"
     for dir in path.parentDirs(fromRoot = true):
       discard existsOrCreateDir(dir)
-    for dir in walkDir(obj.branch & DirSep & obj.subPath):
+    for dir in walkDir(path):
       let
         absDirPath = fmt"{getCurrentDir()}/{dir.path}"
         name = dir.path.splitPath().tail
