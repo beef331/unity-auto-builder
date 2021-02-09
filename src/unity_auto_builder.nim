@@ -133,14 +133,14 @@ proc resyncBuildFiles(obj: BuildObj) =
   discard execShellCmd(fmt"git -C ./{obj.branch} reset --hard origin/master")
 
   for platform in obj.platforms:
-    discard existsOrCreateDir($platform)
-    discard existsOrCreateDir(fmt"{$platform}/{obj.branch}")
-    discard existsOrCreateDir(fmt"{$platform}/{obj.branch}/{obj.subPath}")
+    let path = fmt"{$platform}/{obj.branch}/{obj.subPath}"
+    for dir in path.parentDirs(fromRoot = true):
+      discard existsOrCreateDir(dir)
     for dir in walkDir(obj.branch & DirSep & obj.subPath):
       let
         absDirPath = fmt"{getCurrentDir()}/{dir.path}"
         name = dir.path.splitPath().tail
-        absSymPath = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/{name}"
+        absSymPath = getCurrentDir() / path / name
       if name == "Packages":
         if dirExists(absSymPath): removeDir(absSymPath)
         copyDirWithPermissions(absDirPath, absSymPath)
