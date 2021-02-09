@@ -181,15 +181,15 @@ proc buildProjects(obj: BuildObj){.thread.} =
     if(obj.platforms.contains(bpWin)):
       built.add bpWin
       buildCommands.add(buildCommand &
-              fmt"-projectPath 'bpWin/{obj.branch}/{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.branch}/{obj.name}.exe -logFile {getCurrentDir()}/win-{obj.branch}.log")
+              fmt"-projectPath '{bpWin}/{obj.branch}/{obj.subPath}' -buildTarget win64 -buildWindows64Player {getCurrentDir()}/win-build/{obj.branch}/{obj.name}.exe -logFile {getCurrentDir()}/win-{obj.branch}.log")
     if(obj.platforms.contains(bpLinux)):
       built.add bpLinux
       buildCommands.add(buildCommand &
-              fmt"-projectPath 'bpLinux/{obj.branch}/{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.branch}/{obj.name}.x86_64 -logFile {getCurrentDir()}/linux-{obj.branch}.log")
+              fmt"-projectPath '{bpLinux}/{obj.branch}/{obj.subPath}' -buildTarget linux64 -buildLinux64Player {getCurrentDir()}/linux-build/{obj.branch}/{obj.name}.x86_64 -logFile {getCurrentDir()}/linux-{obj.branch}.log")
     if(obj.platforms.contains(bpMac)):
       built.add bpMac
       buildCommands.add(buildCommand &
-              fmt"-projectPath 'bpMac/{obj.branch}/{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.branch}/{obj.name}.dmg -logFile {getCurrentDir()}/mac-{obj.branch}.log")
+              fmt"-projectPath '{bpMac}/{obj.branch}/{obj.subPath}' -buildTarget mac -buildOSXUniversalPlayer {getCurrentDir()}/mac-build/{obj.branch}/{obj.name}.dmg -logFile {getCurrentDir()}/mac-{obj.branch}.log")
     var
       githubUrl = ""
     discard execProcesses(buildCommands, {}, afterRunEvent = proc(id: int, _: Process) =
