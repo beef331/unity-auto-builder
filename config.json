@@ -1,9 +1,7 @@
 {
     "repo" : "https://github.com/{NAME-HERE}/{REPO-HERE}",
     "project-sub-path": "/For/When/Not/At/Root",
-    "branches" : [
-      "master"
-    ],
+    "branches" : "master",
     "name" : "Project-Name",
     "unity-path" : "Path/To/Unity/Binary",
     "pre-compile-scripts" : [

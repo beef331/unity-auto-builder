@@ -3,7 +3,7 @@ export tables
 
 const
   repo = "repo"
-  branch = "branches"
+  branch = "branch"
   unityPath = "unity-path"
   preBuild = "pre-compile-scripts"
   postBuild = "post-compile-scripts"
@@ -21,7 +21,6 @@ type
     unityPath*, repo*, name*, subPath*, lastCommitBuilt*: string
     platforms*: set[BuildPlatforms]
     preBuild*, postBuild*: seq[string]
-    branches*: seq[string]
     branch*: string #used to store currently building branch
     buildInfo*: Table[string, BuildInfo]
 
@@ -60,11 +59,10 @@ proc parseConfig*(path: string): BuildObj =
     result.name = "untitled"
 
   if(rootNode.contains(branch)):
-    for x in rootNode[branch]:
-      result.branches.add(x.getStr())
+    result.branch = rootNode[branch].getStr()
   else:
     echo "No branch in json, using master"
-    result.branches.add("master")
+    result.branch = "master"
   if(rootNode.contains(preBuild)):
     let prebuildScripts = rootNode[preBuild]
     for pathNode in prebuildScripts:
