@@ -10,7 +10,7 @@ import std/[
 ]
 proc uploadGoogle*(archivePath, logPath: string, build: BuildObj, platform: BuildPlatforms) =
   if googleCloud in build.buildInfo:
-    echo &"\nStart Uploading: {archivePath} to Google\n\n"
+    echo &"Start Uploading: {archivePath} to Google\n"
     let
       info = build.buildInfo[googleCloud]
       yourBucket = info["bucket"]
@@ -19,4 +19,4 @@ proc uploadGoogle*(archivePath, logPath: string, build: BuildObj, platform: Buil
       objectId = info["path"] & "/" & name & ext
     var conn = waitFor newConnection(info["authpath"])
     var err = waitfor conn.upload(yourBucket, objectId, readFile(archivePath))
-    echo &"\nFinished Uploading: {archivePath} to Google\n\n"
+    echo &"\nFinished Uploading: {archivePath} to Google\n"

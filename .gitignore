@@ -11,4 +11,4 @@ temp.tar.gz
 *.zip
 /src/githubuploader
 /src/itchiouploader
-/lastRun*.txt
+/last-run-*.txt

@@ -31,11 +31,10 @@ if(not fileExists(configPath)):
   quit(fmt"Config File not found at {configPath}")
 
 proc saveState(obj: BuildObj) =
-  acquire L
-  var file = open(fmt"lastRun{obj.branch}.txt", fmWrite)
-  file.writeLine(obj.lastCommitBuilt)
-  file.close()
-  release L
+  withLock(L):
+    var file = open(fmt"last-run-{obj.branch}.txt", fmWrite)
+    file.write(obj.lastCommitBuilt)
+    file.close()
 
 proc loadState(obj: var BuildObj) =
   if(fileExists(fmt"last-run-{obj.branch}.txt")):
@@ -43,7 +42,6 @@ proc loadState(obj: var BuildObj) =
       file = open(fmt"last-run-{obj.branch}.txt", fmRead)
     obj.lastCommitBuilt = file.readLine()
     file.close()
-  saveState(obj)
 
 proc buildingMessage() =
   let startTime = getTime()
@@ -198,11 +196,9 @@ proc buildProjects(obj: BuildObj) =
       of bpLinux: fmt"{getCurrentDir()}/linux-{obj.branch}.log"
       of bpMac: fmt"{getCurrentDir()}/mac-{obj.branch}.log"
       else: ""
-    withLock(L):
-      echo "\n\n", folderPath, "\n\n"
     if dirExists(folderPath):
       withLock(L):
-        echo "Creating archive for ", platform, "\n\n"
+        echo "Creating archive for ", platform, "\n"
       case platform:
       of {bpMac, bpLinux}:
         createTarball(folderPath, archivePath)
@@ -235,6 +231,8 @@ setCurrentDir(configPath.splitPath().head)
 proc watchLogic(build: BuildObj) =
   var build = build
   build.loadState()
+  withLock(L):
+    echo "Last built commit, ", build.lastCommitBuilt, "\n"
   build.cloneBuild()
   while true:
     let sha = build.getSha()
