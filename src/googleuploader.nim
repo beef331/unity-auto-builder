@@ -19,5 +19,5 @@ proc uploadGoogle*(archivePath, logPath: string, build: BuildObj, platform: Buil
       objectId = info["path"] & "/" & name & ext
     var conn = waitFor newConnection(info["authpath"])
     discard waitfor conn.upload(yourBucket, objectId, readFile(archivePath), NoCache)
-    discard waitfor conn.upload(yourBucket, fmt"""{info["path"]}/{platform}.txt""", build.lastCommitBuilt, NoStore)
+    discard waitfor conn.upload(yourBucket, fmt"""{info["path"]}/{platform}.txt""", build.lastCommitBuilt, NoCache, NoStore)
     echo &"\nFinished Uploading: {archivePath} to Google\n"
