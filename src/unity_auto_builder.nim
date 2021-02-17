@@ -1,15 +1,11 @@
 import os,
       osproc,
-      json,
       strformat,
       strutils,
       times,
-      locks,
       terminal,
       buildobj,
-      zippy/[tarballs, ziparchives],
-      asyncdispatch,
-      sugar
+      zippy/[tarballs, ziparchives]
 import githubuploader, googleuploader
 
 if(paramCount() < 1):
@@ -30,7 +26,9 @@ if(not fileExists(configPath)):
 proc colourPrint(s: string, fg: ForegroundColor) = echo ansiForegroundColorCode(fg) & s & ansiResetCode
 
 proc successWrite(s: string) = s.colourPrint(fgGreen)
+
 proc errorWrite(s: string) = s.colourPrint(fgRed)
+
 proc warnWrite(s: string) = s.colourPrint(fgYellow)
 
 proc saveState(obj: BuildObj) =
