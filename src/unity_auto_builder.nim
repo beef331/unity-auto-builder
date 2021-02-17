@@ -151,15 +151,20 @@ setCurrentDir(configPath.splitPath().head)
 proc watchLogic(build: BuildObj) =
   var build = build
   build.loadState()
+  var steps = 0
   echo "Last built commit, ", build.lastCommitBuilt, "\n"
   build.cloneBuild()
   while true:
-    echo "Watching for a commit."
+    cursorUp()
+    eraseLine()
+    echo "Watching for a commit." & repeat('.', steps.mod(3))
     let sha = build.getSha()
     if(sha != build.lastCommitBuilt):
       build.lastCommitBuilt = sha
       buildProjects(build)
       build.saveState()
+      steps = 0
+    inc steps
     sleep(10000)
 var build = parseConfig(configPath)
 
