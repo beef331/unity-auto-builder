@@ -120,14 +120,19 @@ proc buildProjects(obj: BuildObj) =
         else: ""
       successWrite fmt"{platform} build finished."
       if dirExists(folderPath):
+        discard tryRemoveFile(archivePath)
         echo "Creating archive for ", platform, "\n"
         case platform:
         of {bpMac, bpLinux}:
-          createTarball(folderPath, archivePath)
+          try:
+            createTarball(folderPath, archivePath)
+          except ZippyError as e:
+            echo e.msg
         else:
           createZipArchive(folderPath, archivePath)
-        uploadGithub(archivePath, logPath, obj, platform, githubUrl)
-        uploadGoogle(archivePath, logPath, obj, platform)
+        if fileExists archivePath:
+          uploadGithub(archivePath, logPath, obj, platform, githubUrl)
+          uploadGoogle(archivePath, logPath, obj, platform)
     else:
       errorWrite fmt"{built[id]} build failed."
   )
