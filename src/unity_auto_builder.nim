@@ -48,7 +48,6 @@ proc resyncBuildFiles(obj: BuildObj) =
   discard execShellCmd(fmt"git -C ./{obj.branch} reset --hard origin/master")
   discard execShellCmd(fmt"git -C ./{obj.branch} pull")
   let projectPath = fmt"{obj.branch}/{obj.subPath}"
-  echo projectPath
   for platform in obj.platforms:
     let path = fmt"{$platform}/{obj.branch}/{obj.subPath}"
     for dir in path.parentDirs(fromRoot = true):
