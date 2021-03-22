@@ -1,6 +1,6 @@
 # Package
 
-version       = "0.1.0"
+version       = "1.2.0"
 author        = "Jason"
 description   = "A batch Unity Engine builder, makes multiple build async to save time!"
 license       = "MIT"
