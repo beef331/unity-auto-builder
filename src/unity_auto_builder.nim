@@ -47,8 +47,8 @@ proc resyncBuildFiles(obj: BuildObj) =
   discard execShellCmd(fmt"git -C ./{obj.branch} fetch origin")
   discard execShellCmd(fmt"git -C ./{obj.branch} reset --hard origin/master")
   discard execShellCmd(fmt"git -C ./{obj.branch} pull")
-  template exists(s: string): untyped =
-    not fileExists(s) and not dirExists(s) and symlinkExists(s)
+  template notExists(s: string): untyped =
+    not fileExists(s) and not dirExists(s) and not symlinkExists(s)
   let projectPath = fmt"{obj.branch}/{obj.subPath}"
   for platform in obj.platforms:
     let path = fmt"{$platform}/{obj.branch}/{obj.subPath}"
@@ -66,8 +66,8 @@ proc resyncBuildFiles(obj: BuildObj) =
         discard existsOrCreateDir(absSymPath)
         for path in walkDir(absDirPath):
           let symDir = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/Assets/{path.path.splitPath().tail}"
-          if not absSymPath.exists: createSymlink(path.path, symDir)
-      elif not absSymPath.exists:
+          if absSymPath.notExists: createSymlink(path.path, symDir)
+      elif absSymPath.notExists:
         createSymlink(absDirPath, absSymPath)
 
 proc cloneBuild(obj: BuildObj) =
