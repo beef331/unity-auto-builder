@@ -47,6 +47,8 @@ proc resyncBuildFiles(obj: BuildObj) =
   discard execShellCmd(fmt"git -C ./{obj.branch} fetch origin")
   discard execShellCmd(fmt"git -C ./{obj.branch} reset --hard origin/master")
   discard execShellCmd(fmt"git -C ./{obj.branch} pull")
+  template exists(s: string): untyped =
+    not fileExists(s) and not dirExists(s) and symlinkExists(s)
   let projectPath = fmt"{obj.branch}/{obj.subPath}"
   for platform in obj.platforms:
     let path = fmt"{$platform}/{obj.branch}/{obj.subPath}"
@@ -64,8 +66,8 @@ proc resyncBuildFiles(obj: BuildObj) =
         discard existsOrCreateDir(absSymPath)
         for path in walkDir(absDirPath):
           let symDir = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/Assets/{path.path.splitPath().tail}"
-          if not fileExists(symDir) and not dirExists(symDir): createSymlink(path.path, symDir)
-      elif not fileExists(absSymPath) and not dirExists(absSymPath):
+          if not absSymPath.exists: createSymlink(path.path, symDir)
+      elif not absSymPath.exists:
         createSymlink(absDirPath, absSymPath)
 
 proc cloneBuild(obj: BuildObj) =
@@ -83,9 +85,9 @@ proc buildProjects(obj: BuildObj) =
   echo fmt"{time} Starting to build {obj.branch} {obj.platforms}"
   building = true
   for preBuild in obj.preBuild:
-    discard execShellCmd(fmt"{preBuild} {configPath} {obj.branch}")   
+    discard execShellCmd(fmt"{preBuild} {configPath} {obj.branch}")
   let startTime = getTime()
-  var 
+  var
     buildCommands: seq[string]
     built: seq[BuildPlatforms]
   let buildCommand = fmt"{obj.unityPath} -batchmode -nographics -quit -accept-apiupdate "
@@ -105,11 +107,12 @@ proc buildProjects(obj: BuildObj) =
     githubUrl = ""
   discard execProcesses(buildCommands, {}, afterRunEvent = proc(id: int, p: Process) =
     if p.peekExitCode == 0:
-      let 
+      let
         platform = built[id]
         (folderPath, archivePath) = case platform:
         of bpWin: (fmt"win-build/{obj.branch}/", fmt"win-build/{obj.branch}{ArchiveExt[platform]}")
-        of bpLinux: (fmt"linux-build/{obj.branch}/", fmt"linux-build/{obj.branch}{ArchiveExt[platform]}")
+        of bpLinux: (fmt"linux-build/{obj.branch}/",
+            fmt"linux-build/{obj.branch}{ArchiveExt[platform]}")
         of bpMac: (fmt"mac-build/{obj.branch}/", fmt"mac-build/{obj.branch}{ArchiveExt[platform]}")
         else: ("", "")
         logPath = case platform:
