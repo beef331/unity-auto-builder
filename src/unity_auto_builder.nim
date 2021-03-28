@@ -44,8 +44,12 @@ proc resyncBuildFiles(obj: BuildObj) =
   discard execShellCmd(fmt"git -C ./{obj.branch} fetch origin")
   discard execShellCmd(fmt"git -C ./{obj.branch} reset --hard origin/master")
   discard execShellCmd(fmt"git -C ./{obj.branch} pull")
-  template notExists(s: string): untyped =
-    not fileExists(s) and not dirExists(s) and not symlinkExists(s)
+  template removePath(s: string): untyped =
+    if fileExists(s):
+      removeFile(s)
+    elif dirExists(s):
+      removeDir(s)
+
   let projectPath = fmt"{obj.branch}/{obj.subPath}"
   for platform in obj.platforms:
     let path = fmt"{$platform}/{obj.branch}/{obj.subPath}"
@@ -64,21 +68,32 @@ proc resyncBuildFiles(obj: BuildObj) =
           discard existsOrCreateDir(absSymPath)
           for path in walkDir(absDirPath):
             let symDir = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/Assets/{path.path.splitPath().tail}"
-            if absSymPath.notExists: createSymlink(path.path, symDir)
-        elif absSymPath.notExists:
-          createSymlink(absDirPath, absSymPath)
+            removePath(absSymPath)
+            if not absSymPath.symlinkExists:
+              createSymlink(path.path, symDir)
+        else:
+          absSymPath.removePath
+          if not absSymPath.symlinkExists:
+            createSymlink(absDirPath, absSymPath)
     else:
+      template proj(s: string): untyped = projectPath / s
+      template dest(s: string): untyped = path / s
       let
-        srcAssets = projectPath / "Assets"
-        srcPackages = projectPath / "Packages"
-        destAssets = path / "Assets"
-        destPackages = path / "Packages"
+        srcAssets = proj "Assets"
+        srcPackages = proj "Packages"
+        srcSettings = proj "ProjectSettings"
+        destAssets = dest "Assets"
+        destPackages = dest "Packages"
+        destSettings = dest "ProjectSettings"
       if dirExists destAssets:
         removeDir(destAssets)
       if dirExists(destPackages):
         removeDir(destPackages)
+      if dirExists(destSettings):
+        removeDir(destSettings)
       copyDirWithPermissions(srcAssets, destAssets)
       copyDirWithPermissions(srcPackages, destPackages)
+      copyDirWithPermissions(srcSettings, destSettings)
 
 proc cloneBuild(obj: BuildObj) =
   ##Clones repo
