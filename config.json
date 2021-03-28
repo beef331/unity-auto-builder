@@ -1,36 +1,36 @@
 {
-    "repo" : "https://github.com/{NAME-HERE}/{REPO-HERE}",
+    "repo": "https://github.com/{NAME-HERE}/{REPO-HERE}",
     "project-sub-path": "/For/When/Not/At/Root",
-    "branches" : "master",
-    "name" : "Project-Name",
-    "unity-path" : "Path/To/Unity/Binary",
-    "pre-compile-scripts" : [
+    "branches": "master",
+    "name": "Project-Name",
+    "unity-path": "Path/To/Unity/Binary",
+    "use-symlink": false,
+    "pre-compile-scripts": [
         "/Path/To/Script"
     ],
-    "post-compile-scripts" : [
+    "post-compile-scripts": [
         "/PathTo/Script"
     ],
-    "platforms" :
-    [
+    "platforms": [
         "windows",
         "linux",
         "mac"
     ],
     "itch": {
-        "name" : "{USERNAME-HERE}",
-        "game-name" : "{GAME-NAME-HERE}"
+        "name": "{USERNAME-HERE}",
+        "game-name": "{GAME-NAME-HERE}"
     },
-    "github":{
-        "token" : "{TOKEN-HERE}",
-        "repo" : "https://api.github.com/repos/{NAME-HERE}/{REPO-HERE}/releases",
-        "time-format" : "ddMMMYYYY'.'HHmm",
-        "tag-format" : "$name$time",
-        "name-format" : "$name-$os"
+    "github": {
+        "token": "{TOKEN-HERE}",
+        "repo": "https://api.github.com/repos/{NAME-HERE}/{REPO-HERE}/releases",
+        "time-format": "ddMMMYYYY'.'HHmm",
+        "tag-format": "$name$time",
+        "name-format": "$name-$os"
     },
-    "google-storage":{
-      "authpath": "{AUTH-JSON-PATH}",
-      "bucket": "{BUCKET-NAME}",
-      "path": "{OBJECT-PATH}",
-      "name-format" : "$name_$os"
+    "google-storage": {
+        "authpath": "{AUTH-JSON-PATH}",
+        "bucket": "{BUCKET-NAME}",
+        "path": "{OBJECT-PATH}",
+        "name-format": "$name_$os"
     }
 }

@@ -1,4 +1,4 @@
-import json, os, strutils, tables
+import std/[json, os, strutils, tables, strformat]
 export tables
 
 const
@@ -12,17 +12,19 @@ const
   subPath = "project-sub-path"
   github* = "github"
   googleCloud* = "google-storage"
+  symLink = "use-symlink"
 
 type
   BuildInfo* = Table[string, string]
   BuildPlatforms* {.size: sizeof(cint).} = enum
-    bpWin = "win", bpLinux = "linux" , bpMac = "mac" , bpAndr, bpWeb, bpIos
+    bpWin = "win", bpLinux = "linux", bpMac = "mac", bpAndr, bpWeb, bpIos
   BuildObj* = object
     unityPath*, repo*, name*, subPath*, lastCommitBuilt*: string
     platforms*: set[BuildPlatforms]
     preBuild*, postBuild*: seq[string]
     branch*: string #used to store currently building branch
     buildInfo*: Table[string, BuildInfo]
+    symlinked*: bool
 
 const ArchiveExt* =
   [
@@ -74,6 +76,10 @@ proc parseConfig*(path: string): BuildObj =
     for pathNode in postBuildScripts:
       let path = pathNode.getStr()
       if(path.fileExists()): result.postBuild.add(path)
+  if rootNode.contains(symLink):
+    result.symlinked = rootNode[symLink].getBool
+
+  echo fmt"Using symlinks: {result.symLink}"
 
   if(rootNode.contains(platforms)):
     for platform in rootNode[platforms]:

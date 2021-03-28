@@ -36,12 +36,9 @@ proc saveState(obj: BuildObj) =
   file.write(obj.lastCommitBuilt)
   file.close()
 
-proc loadState(obj: var BuildObj) =
+proc getLastBuild(obj: BuildObj): string =
   if(fileExists(fmt"last-run-{obj.branch}.txt")):
-    let
-      file = open(fmt"last-run-{obj.branch}.txt", fmRead)
-    obj.lastCommitBuilt = file.readLine()
-    file.close()
+    result = readFile(fmt"last-run-{obj.branch}.txt")
 
 proc resyncBuildFiles(obj: BuildObj) =
   discard execShellCmd(fmt"git -C ./{obj.branch} fetch origin")
@@ -52,23 +49,36 @@ proc resyncBuildFiles(obj: BuildObj) =
   let projectPath = fmt"{obj.branch}/{obj.subPath}"
   for platform in obj.platforms:
     let path = fmt"{$platform}/{obj.branch}/{obj.subPath}"
-    for dir in path.parentDirs(fromRoot = true):
-      discard existsOrCreateDir(dir)
-    for dir in walkDir(projectPath):
+    if obj.symlinked:
+      for dir in path.parentDirs(fromRoot = true):
+        discard existsOrCreateDir(dir)
+      for dir in walkDir(projectPath):
+        let
+          absDirPath = fmt"{getCurrentDir()}/{dir.path}"
+          name = dir.path.splitPath().tail
+          absSymPath = getCurrentDir() / path / name
+        if name == "Packages":
+          if dirExists(absSymPath): removeDir(absSymPath)
+          copyDirWithPermissions(absDirPath, absSymPath)
+        if name == "Assets":
+          discard existsOrCreateDir(absSymPath)
+          for path in walkDir(absDirPath):
+            let symDir = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/Assets/{path.path.splitPath().tail}"
+            if absSymPath.notExists: createSymlink(path.path, symDir)
+        elif absSymPath.notExists:
+          createSymlink(absDirPath, absSymPath)
+    else:
       let
-        absDirPath = fmt"{getCurrentDir()}/{dir.path}"
-        name = dir.path.splitPath().tail
-        absSymPath = getCurrentDir() / path / name
-      if name == "Packages":
-        if dirExists(absSymPath): removeDir(absSymPath)
-        copyDirWithPermissions(absDirPath, absSymPath)
-      if name == "Assets":
-        discard existsOrCreateDir(absSymPath)
-        for path in walkDir(absDirPath):
-          let symDir = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/Assets/{path.path.splitPath().tail}"
-          if absSymPath.notExists: createSymlink(path.path, symDir)
-      elif absSymPath.notExists:
-        createSymlink(absDirPath, absSymPath)
+        srcAssets = projectPath / "Assets"
+        srcPackages = projectPath / "Packages"
+        destAssets = path / "Assets"
+        destPackages = path / "Packages"
+      if dirExists destAssets:
+        removeDir(destAssets)
+      if dirExists(destPackages):
+        removeDir(destPackages)
+      copyDirWithPermissions(srcAssets, destAssets)
+      copyDirWithPermissions(srcPackages, destPackages)
 
 proc cloneBuild(obj: BuildObj) =
   ##Clones repo
@@ -157,7 +167,6 @@ setCurrentDir(configPath.splitPath().head)
 
 proc watchLogic(build: BuildObj) =
   var build = build
-  build.loadState()
   var steps = 0
   echo "Last built commit, ", build.lastCommitBuilt, "\n"
   build.cloneBuild()
@@ -166,7 +175,7 @@ proc watchLogic(build: BuildObj) =
     eraseLine()
     echo "Watching for a commit." & repeat('.', steps.mod(3))
     let sha = build.getSha()
-    if(sha != build.lastCommitBuilt):
+    if(sha != build.getLastBuild()):
       build.lastCommitBuilt = sha
       buildProjects(build)
       build.saveState()
