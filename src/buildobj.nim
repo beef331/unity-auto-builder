@@ -79,7 +79,7 @@ proc parseConfig*(path: string): BuildObj =
   if rootNode.contains(symLink):
     result.symlinked = rootNode[symLink].getBool
 
-  echo fmt"Using symlinks: {result.symLink}"
+  echo fmt"Using symlinks: {result.symLinked}"
 
   if(rootNode.contains(platforms)):
     for platform in rootNode[platforms]:
