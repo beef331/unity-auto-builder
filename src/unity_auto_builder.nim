@@ -174,8 +174,13 @@ proc buildProjects(obj: BuildObj) =
   building = false
 
 proc getSha(obj: BuildObj): string =
-  discard execCmd(fmt"git -C ./{obj.branch} fetch --all >> /dev/null && git -C ./{obj.branch} reset --hard origin/{obj.branch} >> /dev/null")
-  discard execCmd(fmt"git -C ./{obj.branch} pull >> /dev/null")
+  const nulPath =
+    when defined(windows):
+      "NUL"
+    else:
+      "/dev/null"
+  discard execCmd(fmt"git -C ./{obj.branch} fetch --all >> {nulPath} && git -C ./{obj.branch} reset --hard origin/{obj.branch} >> {nulPath}")
+  discard execCmd(fmt"git -C ./{obj.branch} pull >> {nulPath}")
   result = execCmdEx(fmt"git -C ./{obj.branch} log -1 --format=%H").output.strip()
 
 setCurrentDir(configPath.splitPath().head)
