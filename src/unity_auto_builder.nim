@@ -5,6 +5,7 @@ import os,
       times,
       terminal,
       buildobj,
+      strscans,
       zippy/[tarballs, ziparchives]
 import githubuploader, googleuploader
 
@@ -41,14 +42,16 @@ proc getLastBuild(obj: BuildObj): string =
     result = readFile(fmt"last-run-{obj.branch}.txt")
 
 proc resyncBuildFiles(obj: BuildObj) =
-  discard execShellCmd(fmt"git -C ./{obj.branch} fetch origin")
-  discard execShellCmd(fmt"git -C ./{obj.branch} reset --hard origin/master")
-  discard execShellCmd(fmt"git -C ./{obj.branch} pull")
-  template removePath(s: string): untyped =
-    if fileExists(s):
-      removeFile(s)
-    elif dirExists(s):
-      removeDir(s)
+  let dir = getCurrentDir() / obj.branch
+  discard execShellCmd(fmt"git -C {dir} fetch origin")
+  discard execShellCmd(fmt"git -C {dir} reset --hard origin/{obj.branch}")
+  discard execShellCmd(fmt"git -C {dir} pull")
+  proc removePath(s: string, kind: PathComponent) =
+    if not s.symlinkExists:
+      if fileExists(s):
+        removeFile(s)
+      elif dirExists(s):
+        removeDir(s)
 
   let projectPath = fmt"{obj.branch}/{obj.subPath}"
   for platform in obj.platforms:
@@ -62,17 +65,17 @@ proc resyncBuildFiles(obj: BuildObj) =
           name = dir.path.splitPath().tail
           absSymPath = getCurrentDir() / path / name
         if name == "Packages":
-          if dirExists(absSymPath): removeDir(absSymPath)
+          removeDir(absSymPath)
           copyDirWithPermissions(absDirPath, absSymPath)
         if name == "Assets":
           discard existsOrCreateDir(absSymPath)
           for path in walkDir(absDirPath):
-            let symDir = fmt"{getCurrentDir()}/{$platform}/{obj.branch}/{obj.subPath}/Assets/{path.path.splitPath().tail}"
-            removePath(absSymPath)
-            if not absSymPath.symlinkExists:
+            let symDir = absSymPath / path.path.splitPath().tail
+            removePath(symDir, path.kind)
+            if not symDir.symlinkExists:
               createSymlink(path.path, symDir)
         else:
-          absSymPath.removePath
+          absSymPath.removePath dir.kind
           if not absSymPath.symlinkExists:
             createSymlink(absDirPath, absSymPath)
     else:
@@ -85,12 +88,11 @@ proc resyncBuildFiles(obj: BuildObj) =
         destAssets = dest "Assets"
         destPackages = dest "Packages"
         destSettings = dest "ProjectSettings"
-      if dirExists destAssets:
+      try:
         removeDir(destAssets)
-      if dirExists(destPackages):
         removeDir(destPackages)
-      if dirExists(destSettings):
         removeDir(destSettings)
+      except: discard
       copyDirWithPermissions(srcAssets, destAssets)
       copyDirWithPermissions(srcPackages, destPackages)
       copyDirWithPermissions(srcSettings, destSettings)
@@ -102,6 +104,21 @@ proc cloneBuild(obj: BuildObj) =
     discard execShellCmd(fmt"git clone -b {obj.branch} {obj.repo} {obj.branch}")
     if(not dirExists(obj.branch)): quit "Repo not accessible or incorrect"
     resyncBuildFiles(obj)
+
+when defined linux:
+  import posix
+
+proc cleanupAllProcesses(s: string) =
+  echo s
+  when defined linux:
+    for dir in walkDir("/proc"):
+      var pid: int
+      if dir.path.scanf("/proc/$i", pid):
+        let cmdLine = dir.path / "cmdline"
+        if cmdLine.fileExists:
+          if s == cmdLine:
+            discard kill(pid.Pid, SigKill)
+
 
 proc buildProjects(obj: BuildObj) =
   ## Build each platform async to build many at once
@@ -131,6 +148,7 @@ proc buildProjects(obj: BuildObj) =
   var
     githubUrl = ""
   discard execProcesses(buildCommands, {}, afterRunEvent = proc(id: int, p: Process) =
+    cleanUpAllProcesses(buildCommands[id])
     if p.peekExitCode == 0:
       let
         platform = built[id]
@@ -179,9 +197,10 @@ proc getSha(obj: BuildObj): string =
       "NUL"
     else:
       "/dev/null"
-  discard execCmd(fmt"git -C ./{obj.branch} fetch --all >> {nulPath} && git -C ./{obj.branch} reset --hard origin/{obj.branch} >> {nulPath}")
-  discard execCmd(fmt"git -C ./{obj.branch} pull >> {nulPath}")
-  result = execCmdEx(fmt"git -C ./{obj.branch} log -1 --format=%H").output.strip()
+  let dir = getCurrentDir() / obj.branch
+  discard execCmd(fmt"git -C {dir} fetch --all >> {nulPath} && git -C {dir} reset --hard origin/{obj.branch} >> {nulPath}")
+  discard execCmd(fmt"git -C {dir} pull >> {nulPath}")
+  result = execCmdEx(fmt"git -C {dir} log -1 --format=%H").output.strip()
 
 setCurrentDir(configPath.splitPath().head)
 
