@@ -65,8 +65,8 @@ proc resyncBuildFiles(obj: BuildObj) =
           name = dir.path.splitPath().tail
           absSymPath = getCurrentDir() / path / name
         if name == "Packages":
-          removeDir(absSymPath)
-          copyDirWithPermissions(absDirPath, absSymPath)
+          removePath(absSymPath, dir.kind)
+          copyDir(absDirPath, absSymPath)
         if name == "Assets":
           discard existsOrCreateDir(absSymPath)
           for path in walkDir(absDirPath):
@@ -102,6 +102,9 @@ proc cloneBuild(obj: BuildObj) =
   let pathName = obj.branch
   if(not dirExists(pathName)):
     discard execShellCmd(fmt"git clone -b {obj.branch} {obj.repo} {obj.branch}")
+    for plat in obj.platforms:
+      let dir = $obj.branch / $plat
+      removedir(dir)
     if(not dirExists(obj.branch)): quit "Repo not accessible or incorrect"
     resyncBuildFiles(obj)
 
@@ -109,7 +112,6 @@ when defined linux:
   import posix
 
 proc cleanupAllProcesses(s: string) =
-  echo s
   when defined linux:
     for dir in walkDir("/proc"):
       var pid: int
