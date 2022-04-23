@@ -2,7 +2,7 @@
 A git based Unity Build System. It tracks git commits and automates desktop builds and uploads off them.
 ## How To Build
 
-Clone the repo. Install [Nim](https://github.com/dom96/choosenim), then run `nimble build` inside the root directory of the cloned repo.
+Clone the repo. Install [Nim](https://github.com/dom96/choosenim), then run `nimble install https://github.com/beef331/unity-auto-builder` inside the root directory of the cloned repo.
 
 Requirements:
 `libssl, git`
